@@ -11,5 +11,5 @@ case class GraphNodeCons[F[_], H <: GraphNode[F, ?], T <: GraphNodeList[F]](
 ) extends GraphNodeList[F]
 
 extension [F[_], H <: GraphNode[F, ?]](node: H)
-  def +:[T <: GraphNodeList[F]](tail: T): GraphNodeCons[F, H, T] =
+  def ::[T <: GraphNodeList[F]](tail: T): GraphNodeCons[F, H, T] =
     GraphNodeCons(node, tail)
