@@ -31,13 +31,16 @@ object ChatTool extends GraphEdge[IO, ChatNode.type, ToolNode.type]
 object ChatEnd extends GraphEdge[IO, ChatNode.type, EndNode.type]
 object ToolChat extends GraphEdge[IO, ToolNode.type, ChatNode.type]
 
+enum WeatherUnit:
+  case C, F
+
 case class Address(street: String, city: String)
 
 case class GetWeatherInput(
     @description("The city and state, e.g. San Francisco, CA")
     location: String,
-    @description("C or F for centigrade or fahrenheit")
-    unit: Option[String],
+    @description("centigrade or fahrenheit")
+    unit: Option[WeatherUnit],
     @description("Optional address")
     address: Option[Address],
     @description("Optional tags")

@@ -47,16 +47,33 @@ trait auto {
     childAnnotations: => Map[String, List[(String, Json)]],
     typeAnnotations: => List[(String, Json)]
   ): JsonSchemaEncoder[T] = new JsonSchemaEncoder[T] {
-    override def schema: Json = Json
-      .obj(
-        "anyOf" -> Json.arr(
-          elems.zip(elemLabels).map { (elem, label) =>
-            val annotations = childAnnotations.getOrElse(label, Nil)
-            elem.schema.deepMerge(Json.obj(annotations*))
-          }*
-        )
-      )
-      .deepMerge(Json.obj(typeAnnotations*))
+    override def schema: Json = {
+      // Check if all elements are simple (parameterless enum cases)
+      val isSimpleEnum = elems.forall { elem =>
+        val elemSchema = elem.schema
+        // A simple enum case has type "object" with empty or no properties
+        elemSchema.hcursor.downField("type").as[String].contains("object") &&
+        elemSchema.hcursor.downField("properties").as[io.circe.JsonObject].map(_.isEmpty).getOrElse(true)
+      }
+      
+      if (isSimpleEnum) {
+        // Generate string enum schema
+        Json.obj(
+          "type" -> Json.fromString("string"),
+          "enum" -> Json.arr(elemLabels.map(Json.fromString)*)
+        ).deepMerge(Json.obj(typeAnnotations*))
+      } else {
+        // Keep existing anyOf behavior for complex enums
+        Json.obj(
+          "anyOf" -> Json.arr(
+            elems.zip(elemLabels).map { (elem, label) =>
+              val annotations = childAnnotations.getOrElse(label, Nil)
+              elem.schema.deepMerge(Json.obj(annotations*))
+            }*
+          )
+        ).deepMerge(Json.obj(typeAnnotations*))
+      }
+    }
   }
 
   private def productEncoder[T: Mirror.ProductOf](
