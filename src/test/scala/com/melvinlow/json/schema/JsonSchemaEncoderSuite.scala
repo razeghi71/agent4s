@@ -145,7 +145,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
       "required" -> Json.arr(Json.fromString("name")),
       "properties" -> Json.obj(
         "name" -> Json.obj("type" -> Json.fromString("string"))
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained1, expected)
@@ -165,7 +166,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
       "properties" -> Json.obj(
         "name" -> Json.obj("type" -> Json.fromString("string")),
         "age" -> Json.obj("type" -> Json.fromString("integer"))
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained, expected)
@@ -199,9 +201,11 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
           "properties" -> Json.obj(
             "_1" -> Json.obj("type" -> Json.fromString("integer")),
             "_2" -> Json.obj("type" -> Json.fromString("boolean"))
-          )
+          ),
+          "additionalProperties" -> Json.fromBoolean(false)
         )
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained, expected)
@@ -218,7 +222,11 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
     val expected = Json.obj(
       "anyOf" -> Json.arr(
         Json
-          .obj("type" -> Json.fromString("object"), "properties" -> Json.obj()),
+          .obj(
+            "type" -> Json.fromString("object"),
+            "properties" -> Json.obj(),
+            "additionalProperties" -> Json.fromBoolean(false)
+          ),
         Json.obj(
           "type" -> Json.fromString("string"),
           "enum" -> Json.arr(
@@ -241,13 +249,18 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
     val expected = Json.obj(
       "anyOf" -> Json.arr(
         Json
-          .obj("type" -> Json.fromString("object"), "properties" -> Json.obj()),
+          .obj(
+            "type" -> Json.fromString("object"),
+            "properties" -> Json.obj(),
+            "additionalProperties" -> Json.fromBoolean(false)
+          ),
         Json.obj(
           "type" -> Json.fromString("object"),
           "required" -> Json.arr(Json.fromString("x")),
           "properties" -> Json.obj(
             "x" -> Json.obj("type" -> Json.fromString("integer"))
-          )
+          ),
+          "additionalProperties" -> Json.fromBoolean(false)
         )
       )
     )
@@ -264,13 +277,18 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
     val expected = Json.obj(
       "anyOf" -> Json.arr(
         Json
-          .obj("type" -> Json.fromString("object"), "properties" -> Json.obj()),
+          .obj(
+            "type" -> Json.fromString("object"),
+            "properties" -> Json.obj(),
+            "additionalProperties" -> Json.fromBoolean(false)
+          ),
         Json.obj(
           "type" -> Json.fromString("object"),
           "required" -> Json.arr(Json.fromString("x")),
           "properties" -> Json.obj(
             "x" -> Json.obj("type" -> Json.fromString("integer"))
-          )
+          ),
+          "additionalProperties" -> Json.fromBoolean(false)
         )
       )
     )
@@ -303,7 +321,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
           "type" -> Json.fromString("integer"),
           "description" -> Json.fromString("age")
         )
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained, expected)
@@ -333,7 +352,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
           "description" -> Json.fromString("name"),
           "required" -> Json.fromBoolean(true)
         )
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained, expected)
@@ -356,7 +376,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
           "properties" -> Json.obj(
             "value" -> Json.obj("type" -> Json.fromString("string"))
           ),
-          "description" -> Json.fromString("B variant")
+          "description" -> Json.fromString("B variant"),
+          "additionalProperties" -> Json.fromBoolean(false)
         )
       )
     )
@@ -384,6 +405,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
           "properties" -> Json.obj(
             "value" -> Json.obj("type" -> Json.fromString("string"))
           ),
+          "additionalProperties" -> Json.fromBoolean(false),
           "description" -> Json.fromString("B variant"),
           "required" -> Json.fromBoolean(true)
         )
@@ -413,10 +435,15 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
     val expected = Json.obj(
       "anyOf" -> Json.arr(
         Json
-          .obj("type" -> Json.fromString("object"), "properties" -> Json.obj()),
+          .obj(
+            "type" -> Json.fromString("object"),
+            "properties" -> Json.obj(),
+            "additionalProperties" -> Json.fromBoolean(false)
+          ),
         Json.obj(
           "type" -> Json.fromString("object"),
           "properties" -> Json.obj(),
+          "additionalProperties" -> Json.fromBoolean(false),
           "description" -> Json.fromString("B")
         ),
         Json.obj(
@@ -427,7 +454,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
               "type" -> Json.fromString("integer"),
               "description" -> Json.fromString("x")
             )
-          )
+          ),
+          "additionalProperties" -> Json.fromBoolean(false)
         )
       )
     )
@@ -452,14 +480,16 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
           "required" -> Json.arr(Json.fromString("name")),
           "properties" -> Json.obj(
             "name" -> Json.obj("type" -> Json.fromString("string"))
-          )
+          ),
+          "additionalProperties" -> Json.fromBoolean(false)
         ),
         "b" -> Json.obj(
           "type" -> Json.fromString("integer"),
           "description" -> Json.fromString("A custom description"),
           "title" -> Json.fromString("A custom title")
         )
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained, expected)
@@ -497,7 +527,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
       "required" -> Json.arr(Json.fromString("x")),
       "properties" -> Json.obj(
         "x" -> Json.obj("type" -> Json.fromString("integer"))
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained, expected)
@@ -517,7 +548,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
       "required" -> Json.arr(Json.fromString("x")),
       "properties" -> Json.obj(
         "x" -> Json.obj("type" -> Json.fromString("string"))
-      )
+      ),
+      "additionalProperties" -> Json.fromBoolean(false)
     )
 
     assertEquals(obtained, expected)
@@ -538,7 +570,8 @@ class JsonSchemaEncoderSuite extends munit.FunSuite:
       "anyOf" -> Json.arr(
         Json.obj(
           "type" -> Json.fromString("string"),
-          "properties" -> Json.obj()
+          "properties" -> Json.obj(),
+          "additionalProperties" -> Json.fromBoolean(false)
         )
       )
     )

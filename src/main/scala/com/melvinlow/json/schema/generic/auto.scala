@@ -109,10 +109,11 @@ trait auto extends instances:
           case (info, label) if !info.isOptional => label
         }
 
-        // Build base schema with properties
+        // Build base schema with properties and additionalProperties = false
         val baseSchema = Json.obj(
           "type" -> Json.fromString("object"),
-          "properties" -> Json.obj(properties*)
+          "properties" -> Json.obj(properties*),
+          "additionalProperties" -> Json.fromBoolean(false)
         )
 
         // Add required array if there are required fields
