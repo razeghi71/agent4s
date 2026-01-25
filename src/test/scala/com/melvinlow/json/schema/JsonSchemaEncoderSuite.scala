@@ -7,7 +7,7 @@ import com.melvinlow.json.schema.annotation.JsonSchemaField
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.syntax.*
 
-class JsonSchemaEncoderSuite extends munit.FunSuite {
+class JsonSchemaEncoderSuite extends munit.FunSuite:
   test("encode a string") {
     val obtained = JsonSchema[String]
     val expected = Json.obj("type" -> Json.fromString("string"))
@@ -102,7 +102,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
   test("encode a list of strings") {
     val obtained = JsonSchema[List[String]]
     val expected = Json.obj(
-      "type"  -> Json.fromString("array"),
+      "type" -> Json.fromString("array"),
       "items" -> Json.obj("type" -> Json.fromString("string"))
     )
 
@@ -112,7 +112,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
   test("encode an array of integers") {
     val obtained = JsonSchema[Array[Int]]
     val expected = Json.obj(
-      "type"  -> Json.fromString("array"),
+      "type" -> Json.fromString("array"),
       "items" -> Json.obj("type" -> Json.fromString("integer"))
     )
 
@@ -122,9 +122,9 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
   test("encode a new type with an custom field") {
     val obtained = JsonSchema[OpaqueType]
     val expected = Json.obj(
-      "type"        -> Json.fromString("integer"),
+      "type" -> Json.fromString("integer"),
       "description" -> Json.fromString("A custom description"),
-      "title"       -> Json.fromString("A custom title")
+      "title" -> Json.fromString("A custom title")
     )
 
     assertEquals(obtained, expected)
@@ -162,7 +162,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
       "type" -> Json.fromString("object"),
       "properties" -> Json.obj(
         "name" -> Json.obj("type" -> Json.fromString("string")),
-        "age"  -> Json.obj("type" -> Json.fromString("integer"))
+        "age" -> Json.obj("type" -> Json.fromString("integer"))
       )
     )
 
@@ -176,16 +176,9 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
     val obtained = JsonSchema[A]
     val expected = Json.obj(
-      "anyOf" -> Json.arr(
-        Json
-          .obj("type" -> Json.fromString("object"), "properties" -> Json.obj()),
-        Json.obj(
-          "type"       -> Json.fromString("object"),
-          "properties" -> Json.obj()
-        )
-      )
+      "type" -> Json.fromString("string"),
+      "enum" -> Json.arr(Json.fromString("B"), Json.fromString("C"))
     )
-
     assertEquals(obtained, expected)
   }
 
@@ -212,10 +205,10 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
   test("encode a nested sum") {
     sealed trait A
-    case object X  extends A
+    case object X extends A
     sealed trait B extends A
-    case object Y  extends B
-    case object Z  extends B
+    case object Y extends B
+    case object Z extends B
 
     val obtained = JsonSchema[A]
     val expected = Json.obj(
@@ -223,15 +216,10 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
         Json
           .obj("type" -> Json.fromString("object"), "properties" -> Json.obj()),
         Json.obj(
-          "anyOf" -> Json.arr(
-            Json.obj(
-              "type"       -> Json.fromString("object"),
-              "properties" -> Json.obj()
-            ),
-            Json.obj(
-              "type"       -> Json.fromString("object"),
-              "properties" -> Json.obj()
-            )
+          "type" -> Json.fromString("string"),
+          "enum" -> Json.arr(
+            Json.fromString("Y"),
+            Json.fromString("Z")
           )
         )
       )
@@ -242,7 +230,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
   test("encode an oldschool ADT") {
     sealed abstract class A
-    case object B              extends A
+    case object B extends A
     final case class C(x: Int) extends A
 
     val obtained = JsonSchema[A]
@@ -263,10 +251,9 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
   }
 
   test("encode a newschool ADT") {
-    enum A {
+    enum A:
       case B
       case C(x: Int)
-    }
 
     val obtained = JsonSchema[A]
     val expected = Json.obj(
@@ -287,14 +274,14 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
   test("encode with constructor custom field") {
     case class A(
-      @JsonSchemaField(
-        key = "description",
-        value = Json.fromString("name")
-      ) name: String,
-      @JsonSchemaField(
-        key = "description",
-        value = Json.fromString("age")
-      ) age: Int
+        @JsonSchemaField(
+          key = "description",
+          value = Json.fromString("name")
+        ) name: String,
+        @JsonSchemaField(
+          key = "description",
+          value = Json.fromString("age")
+        ) age: Int
     )
 
     val obtained = JsonSchema[A]
@@ -302,11 +289,11 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
       "type" -> Json.fromString("object"),
       "properties" -> Json.obj(
         "name" -> Json.obj(
-          "type"        -> Json.fromString("string"),
+          "type" -> Json.fromString("string"),
           "description" -> Json.fromString("name")
         ),
         "age" -> Json.obj(
-          "type"        -> Json.fromString("integer"),
+          "type" -> Json.fromString("integer"),
           "description" -> Json.fromString("age")
         )
       )
@@ -317,16 +304,16 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
   test("encode with multiple constructor custom fields") {
     case class A(
-      @JsonSchemaField(
-        key = "description",
-        value = Json.fromString("name")
-      )
+        @JsonSchemaField(
+          key = "description",
+          value = Json.fromString("name")
+        )
 
-      @JsonSchemaField(
-        key = "required",
-        value = Json.fromBoolean(true)
-      )
-      val name: String
+        @JsonSchemaField(
+          key = "required",
+          value = Json.fromBoolean(true)
+        )
+        val name: String
     )
 
     val obtained = JsonSchema[A]
@@ -334,9 +321,9 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
       "type" -> Json.fromString("object"),
       "properties" -> Json.obj(
         "name" -> Json.obj(
-          "type"        -> Json.fromString("string"),
+          "type" -> Json.fromString("string"),
           "description" -> Json.fromString("name"),
-          "required"    -> Json.fromBoolean(true)
+          "required" -> Json.fromBoolean(true)
         )
       )
     )
@@ -348,17 +335,19 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
     sealed trait A
     @JsonSchemaField(
       key = "description",
-      value = Json.fromString("B")
+      value = Json.fromString("B variant")
     )
-    case object B extends A
+    case class B(value: String) extends A
 
     val obtained = JsonSchema[A]
     val expected = Json.obj(
       "anyOf" -> Json.arr(
         Json.obj(
           "type"        -> Json.fromString("object"),
-          "properties"  -> Json.obj(),
-          "description" -> Json.fromString("B")
+          "properties"  -> Json.obj(
+            "value" -> Json.obj("type" -> Json.fromString("string"))
+          ),
+          "description" -> Json.fromString("B variant")
         )
       )
     )
@@ -370,21 +359,23 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
     sealed trait A
     @JsonSchemaField(
       key = "description",
-      value = Json.fromString("B")
+      value = Json.fromString("B variant")
     )
     @JsonSchemaField(
       key = "required",
       value = Json.fromBoolean(true)
     )
-    case object B extends A
+    case class B(value: String) extends A
 
     val obtained = JsonSchema[A]
     val expected = Json.obj(
       "anyOf" -> Json.arr(
         Json.obj(
           "type"        -> Json.fromString("object"),
-          "properties"  -> Json.obj(),
-          "description" -> Json.fromString("B"),
+          "properties"  -> Json.obj(
+            "value" -> Json.obj("type" -> Json.fromString("string"))
+          ),
+          "description" -> Json.fromString("B variant"),
           "required"    -> Json.fromBoolean(true)
         )
       )
@@ -394,7 +385,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
   }
 
   test("encode with nested custom fields") {
-    enum TestEnum {
+    enum TestEnum:
       case A
 
       @JsonSchemaField(
@@ -403,12 +394,11 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
       ) case B
 
       case C(
-        @JsonSchemaField(
-          key = "description",
-          value = Json.fromString("x")
-        ) x: Int
+          @JsonSchemaField(
+            key = "description",
+            value = Json.fromString("x")
+          ) x: Int
       )
-    }
 
     val obtained = JsonSchema[TestEnum]
     val expected = Json.obj(
@@ -416,15 +406,15 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
         Json
           .obj("type" -> Json.fromString("object"), "properties" -> Json.obj()),
         Json.obj(
-          "type"        -> Json.fromString("object"),
-          "properties"  -> Json.obj(),
+          "type" -> Json.fromString("object"),
+          "properties" -> Json.obj(),
           "description" -> Json.fromString("B")
         ),
         Json.obj(
           "type" -> Json.fromString("object"),
           "properties" -> Json.obj(
             "x" -> Json.obj(
-              "type"        -> Json.fromString("integer"),
+              "type" -> Json.fromString("integer"),
               "description" -> Json.fromString("x")
             )
           )
@@ -437,7 +427,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
   test("must handle alias types") {
     case class A(name: String)
-    type AAlias          = A
+    type AAlias = A
     type OpaqueTypeAlias = OpaqueType
 
     case class T(a: AAlias, b: OpaqueTypeAlias)
@@ -453,9 +443,9 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
           )
         ),
         "b" -> Json.obj(
-          "type"        -> Json.fromString("integer"),
+          "type" -> Json.fromString("integer"),
           "description" -> Json.fromString("A custom description"),
-          "title"       -> Json.fromString("A custom title")
+          "title" -> Json.fromString("A custom title")
         )
       )
     )
@@ -502,10 +492,10 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
   test("must override constructor field") {
     case class A(
-      @JsonSchemaField(
-        key = "type",
-        value = Json.fromString("string")
-      ) x: Int
+        @JsonSchemaField(
+          key = "type",
+          value = Json.fromString("string")
+        ) x: Int
     )
 
     val obtained = JsonSchema[A]
@@ -533,7 +523,7 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
     val expected = Json.obj(
       "anyOf" -> Json.arr(
         Json.obj(
-          "type"       -> Json.fromString("string"),
+          "type" -> Json.fromString("string"),
           "properties" -> Json.obj()
         )
       )
@@ -541,4 +531,3 @@ class JsonSchemaEncoderSuite extends munit.FunSuite {
 
     assertEquals(obtained, expected)
   }
-}
