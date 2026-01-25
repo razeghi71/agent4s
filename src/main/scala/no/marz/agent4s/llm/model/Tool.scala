@@ -1,8 +1,6 @@
 package no.marz.agent4s.llm.model
 import io.circe.{Decoder, Encoder, Json}
 import com.melvinlow.json.schema.JsonSchemaEncoder
-export com.melvinlow.json.schema.generic.auto.given
-export io.circe.generic.auto.given
 
 trait ToolCodec[A]:
   def schema: Json

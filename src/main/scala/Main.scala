@@ -1,10 +1,9 @@
 import cats.effect.IO
-import com.melvinlow.json.schema.generic.auto.given
-import io.circe.generic.auto.given
-import io.circe.{Decoder, Encoder}
 import no.marz.agent4s.graph.*
 import no.marz.agent4s.llm.model.{Tool, ToolCodec}
 import com.melvinlow.json.schema.annotation.description
+import com.melvinlow.json.schema.generic.auto.given
+import io.circe.generic.auto.given
 
 case class AgentState(
     messages: List[String]
