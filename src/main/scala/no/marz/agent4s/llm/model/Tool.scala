@@ -28,9 +28,9 @@ trait Tool[I: ToolCodec, O: ToolCodec]:
   def name: String
   def description: String
   def execute(input: I): O
-  def schema: Json = 
-    Json.obj(
-      "name" -> Json.fromString(name),
-      "description" -> Json.fromString(description),
-      "input_schema" -> summon[ToolCodec[I]].schema
-    )
+  def schema: Json = summon[ToolCodec[I]].schema
+//    Json.obj(
+//      "name" -> Json.fromString(name),
+//      "description" -> Json.fromString(description),
+//      "input_schema" -> summon[ToolCodec[I]].schema
+//    )
