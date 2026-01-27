@@ -1,6 +1,6 @@
 import cats.effect.IO
 import no.marz.agent4s.graph.*
-import no.marz.agent4s.llm.model.{Tool, ToolCodec}
+import no.marz.agent4s.llm.model.{Tool, ToolCodec, ToolList, ToolNil, ~:}
 import com.melvinlow.json.schema.annotation.description
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
@@ -56,9 +56,12 @@ object GetWeatherTool extends Tool[GetWeatherInput, GetWeatherOutput]:
 
 @main def hello(): Unit =
   val ValidGraph = new Graph[IO](
-    nodes = StartNode :: ChatNode :: ToolNode :: EndNode :: GraphNodeNil[IO](),
-    edges = StartChat +: ChatTool +: ChatEnd +: ToolChat +: GraphEdgeNil[IO]()
+    nodes = StartNode @: ChatNode @: ToolNode @: EndNode @: GraphNodeNil[IO](),
+    edges = StartChat -: ChatTool -: ChatEnd -: ToolChat -: GraphEdgeNil[IO]()
   )
 
   println(ValidGraph)
   println(GetWeatherTool.schema)
+
+  val tools: ToolList = GetWeatherTool ~: ToolNil
+  println(s"ToolList created: $tools")

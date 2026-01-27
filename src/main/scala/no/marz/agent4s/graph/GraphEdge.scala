@@ -10,5 +10,5 @@ case class GraphEdgeCons[F[_], H <: GraphEdge[F, ?, ?], T <: GraphEdgeList[F]](
 ) extends GraphEdgeList[F]
 
 extension [F[_], H <: GraphEdge[F, ?, ?]](node: H)
-  def +:[T <: GraphEdgeList[F]](tail: T): GraphEdgeCons[F, H, T] =
+  def -:[T <: GraphEdgeList[F]](tail: T): GraphEdgeCons[F, H, T] =
     GraphEdgeCons(node, tail)

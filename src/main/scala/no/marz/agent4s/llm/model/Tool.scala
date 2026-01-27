@@ -8,7 +8,7 @@ trait ToolCodec[A]:
   def encoder: Encoder[A]
 
 object ToolCodec:
-  def make[A](
+  private def make[A](
       enc: Encoder[A],
       dec: Decoder[A],
       json: JsonSchemaEncoder[A]
@@ -29,8 +29,17 @@ trait Tool[I: ToolCodec, O: ToolCodec]:
   def description: String
   def execute(input: I): O
   def schema: Json = summon[ToolCodec[I]].schema
-//    Json.obj(
-//      "name" -> Json.fromString(name),
-//      "description" -> Json.fromString(description),
-//      "input_schema" -> summon[ToolCodec[I]].schema
-//    )
+
+// HList for type-safe heterogeneous tool lists
+sealed trait ToolList
+
+case object ToolNil extends ToolList
+
+case class ToolCons[I, O, T <: ToolList](
+    head: Tool[I, O],
+    tail: T
+) extends ToolList
+
+extension [I: ToolCodec, O: ToolCodec](tool: Tool[I, O])
+  def ~:[T <: ToolList](tail: T): ToolCons[I, O, T] =
+    ToolCons(tool, tail)
