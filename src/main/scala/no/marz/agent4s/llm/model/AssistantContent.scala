@@ -5,6 +5,5 @@ sealed trait AssistantContent
 object AssistantContent:
   final case class Text(value: String) extends AssistantContent
 
-  final case class ToolCalls(
-      calls: List[ToolCall]
-  ) extends AssistantContent
+  // Empty case class for now - will be populated later
+  final case class ToolCalls() extends AssistantContent

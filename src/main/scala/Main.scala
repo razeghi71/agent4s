@@ -47,12 +47,12 @@ case class GetWeatherInput(
 )
 case class GetWeatherOutput(value: Float, unit: String)
 
-object GetWeatherTool extends Tool[GetWeatherInput, GetWeatherOutput]:
+object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
   def name: String = "GetWeather"
   def description: String =
     "A Tool that given a location and unit returns the degree in that unit"
-  def execute(input: GetWeatherInput): GetWeatherOutput =
-    GetWeatherOutput(10, "C")
+  def execute(input: GetWeatherInput): IO[GetWeatherOutput] =
+    IO.pure(GetWeatherOutput(10, "C"))
 
 @main def hello(): Unit =
   val ValidGraph = new Graph[IO](
@@ -63,5 +63,5 @@ object GetWeatherTool extends Tool[GetWeatherInput, GetWeatherOutput]:
   println(ValidGraph)
   println(GetWeatherTool.schema)
 
-  val tools: ToolList = GetWeatherTool ~: ToolNil
+  val tools: ToolList[IO] = GetWeatherTool ~: ToolNil[IO]()
   println(s"ToolList created: $tools")

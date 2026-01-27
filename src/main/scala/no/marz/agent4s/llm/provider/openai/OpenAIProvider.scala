@@ -55,7 +55,7 @@ class OpenAIProvider[F[_]: Async](
         OpenAIMessage("user", content)
       case DomainMessage.Assistant(AssistantContent.Text(value)) => 
         OpenAIMessage("assistant", value)
-      case DomainMessage.Assistant(AssistantContent.ToolCalls(_)) =>
+      case DomainMessage.Assistant(AssistantContent.ToolCalls()) =>
         throw new IllegalArgumentException("Tool calls not yet supported")
       case DomainMessage.Tool(_, _) => 
         throw new IllegalArgumentException("Tool messages not yet supported")

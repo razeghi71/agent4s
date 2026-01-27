@@ -24,22 +24,22 @@ object ToolCodec:
       json: JsonSchemaEncoder[A]
   ): ToolCodec[A] = make(enc, dec, json)
 
-trait Tool[I: ToolCodec, O: ToolCodec]:
+trait Tool[F[_], I: ToolCodec, O: ToolCodec]:
   def name: String
   def description: String
-  def execute(input: I): O
+  def execute(input: I): F[O]
   def schema: Json = summon[ToolCodec[I]].schema
 
 // HList for type-safe heterogeneous tool lists
-sealed trait ToolList
+sealed trait ToolList[F[_]]
 
-case object ToolNil extends ToolList
+case class ToolNil[F[_]]() extends ToolList[F]
 
-case class ToolCons[I, O, T <: ToolList](
-    head: Tool[I, O],
+case class ToolCons[F[_], I, O, T <: ToolList[F]](
+    head: Tool[F, I, O],
     tail: T
-) extends ToolList
+) extends ToolList[F]
 
-extension [I: ToolCodec, O: ToolCodec](tool: Tool[I, O])
-  def ~:[T <: ToolList](tail: T): ToolCons[I, O, T] =
+extension [F[_], I: ToolCodec, O: ToolCodec](tool: Tool[F, I, O])
+  def ~:[T <: ToolList[F]](tail: T): ToolCons[F, I, O, T] =
     ToolCons(tool, tail)
