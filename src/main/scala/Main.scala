@@ -1,6 +1,7 @@
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
 import no.marz.agent4s.graph.*
-import no.marz.agent4s.llm.model.{Tool, ToolCodec, ToolList, ToolNil, ~:}
+import no.marz.agent4s.llm.model.{Tool, ToolMetadata, ToolSchema}
 import com.melvinlow.json.schema.annotation.description
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
@@ -47,12 +48,14 @@ case class GetWeatherInput(
 )
 case class GetWeatherOutput(value: Float, unit: String)
 
+// Now using Tool trait with execute method
 object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
   def name: String = "GetWeather"
   def description: String =
     "A Tool that given a location and unit returns the degree in that unit"
+  
   def execute(input: GetWeatherInput): IO[GetWeatherOutput] =
-    IO.pure(GetWeatherOutput(10, "C"))
+    IO.pure(GetWeatherOutput(22.5f, input.unit.fold("C")(_.toString)))
 
 @main def hello(): Unit =
   val ValidGraph = new Graph[IO](
@@ -61,7 +64,13 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
   )
 
   println(ValidGraph)
-  println(GetWeatherTool.schema)
-
-  val tools: ToolList[IO] = GetWeatherTool ~: ToolNil[IO]()
-  println(s"ToolList created: $tools")
+  
+  // Test schema extraction
+  val schema: ToolSchema = GetWeatherTool.toToolSchema
+  println(s"Tool schema: ${schema}")
+  println(s"Input schema JSON: ${GetWeatherTool.inputSchema}")
+  
+  // Test execution
+  val testInput = GetWeatherInput("Paris, FR", Some(WeatherUnit.C), None, None)
+  val result = GetWeatherTool.execute(testInput).unsafeRunSync()
+  println(s"Execution result: $result")
