@@ -1,7 +1,13 @@
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import no.marz.agent4s.graph.*
-import no.marz.agent4s.llm.model.{Tool, ToolMetadata, ToolSchema}
+import no.marz.agent4s.llm.model.{
+  Tool,
+  ToolMetadata,
+  ToolSchema,
+  ChatCompletionRequest,
+  Message
+}
 import com.melvinlow.json.schema.annotation.description
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
@@ -53,7 +59,7 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
   def name: String = "GetWeather"
   def description: String =
     "A Tool that given a location and unit returns the degree in that unit"
-  
+
   def execute(input: GetWeatherInput): IO[GetWeatherOutput] =
     IO.pure(GetWeatherOutput(22.5f, input.unit.fold("C")(_.toString)))
 
@@ -64,13 +70,46 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
   )
 
   println(ValidGraph)
-  
+
   // Test schema extraction
   val schema: ToolSchema = GetWeatherTool.toToolSchema
   println(s"Tool schema: ${schema}")
   println(s"Input schema JSON: ${GetWeatherTool.inputSchema}")
-  
+
   // Test execution
   val testInput = GetWeatherInput("Paris, FR", Some(WeatherUnit.C), None, None)
   val result = GetWeatherTool.execute(testInput).unsafeRunSync()
   println(s"Execution result: $result")
+
+  // Test ChatCompletionRequest with tools
+  val request1 = ChatCompletionRequest(
+    model = "gpt-4",
+    messages = Seq(Message.User("What's the weather?")),
+    tools = Set(GetWeatherTool.toToolSchema)
+  )
+  println(s"\nRequest with tools: $request1")
+
+  // Test ChatCompletionRequest without tools (using default)
+  val request2 = ChatCompletionRequest(
+    model = "gpt-4",
+    messages = Seq(Message.User("Hello!"))
+  )
+  println(s"\nRequest without tools: $request2")
+
+  // Test duplicate tool name validation
+  println("\n--- Testing duplicate tool name validation ---")
+  try
+    val duplicateSchema = ToolSchema(
+      name = "GetWeather", // Same name as GetWeatherTool
+      description = "Different description",
+      parameters = io.circe.Json.obj()
+    )
+    val badRequest = ChatCompletionRequest(
+      model = "gpt-4",
+      messages = Seq(Message.User("test")),
+      tools = Set(GetWeatherTool.toToolSchema, duplicateSchema)
+    )
+    println("ERROR: Should have thrown exception for duplicate tool names!")
+  catch
+    case e: IllegalArgumentException =>
+      println(s"✅ Correctly caught duplicate tool name: ${e.getMessage}")

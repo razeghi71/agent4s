@@ -74,3 +74,49 @@ class ToolDefinitionSuite extends munit.FunSuite:
     assertEquals(toolSchema.description, "A Tool that given a location and unit returns the degree in that unit")
     assertEquals(toolSchema.parameters, expectedInputSchema)
   }
+  
+  test("ChatCompletionRequest rejects duplicate tool names") {
+    val schema1 = ToolSchema(
+      name = "get_weather",
+      description = "Gets weather",
+      parameters = Json.obj()
+    )
+    
+    val schema2 = ToolSchema(
+      name = "get_weather",
+      description = "Different description",
+      parameters = Json.obj("type" -> Json.fromString("object"))
+    )
+    
+    // Should throw IllegalArgumentException for duplicate names
+    interceptMessage[IllegalArgumentException]("Duplicate tool names found: get_weather") {
+      ChatCompletionRequest(
+        model = "gpt-4",
+        messages = Seq(Message.User("test")),
+        tools = Set(schema1, schema2)
+      )
+    }
+  }
+  
+  test("ChatCompletionRequest allows tools with different names") {
+    val schema1 = ToolSchema(
+      name = "get_weather",
+      description = "Gets weather",
+      parameters = Json.obj()
+    )
+    
+    val schema2 = ToolSchema(
+      name = "calculator",
+      description = "Calculator",
+      parameters = Json.obj()
+    )
+    
+    // Should succeed - different names
+    val request = ChatCompletionRequest(
+      model = "gpt-4",
+      messages = Seq(Message.User("test")),
+      tools = Set(schema1, schema2)
+    )
+    
+    assertEquals(request.tools.size, 2)
+  }
