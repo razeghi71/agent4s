@@ -38,9 +38,25 @@ class OpenAIProvider[F[_]: Async](
 
   private def toOpenAIRequest(req: ChatCompletionRequest): F[OpenAIChatRequest] =
     Async[F].delay {
+      val openAITools = if (req.tools.nonEmpty) {
+        Some(req.tools.toSeq.map { toolSchema =>
+          OpenAITool(
+            `type` = "function",
+            function = OpenAIFunction(
+              name = toolSchema.name,
+              description = toolSchema.description,
+              parameters = toolSchema.parameters
+            )
+          )
+        })
+      } else {
+        None
+      }
+      
       OpenAIChatRequest(
         model = req.model,
         messages = req.messages.map(convertMessage),
+        tools = openAITools,
         temperature = req.temperature,
         max_tokens = req.maxTokens,
         top_p = req.topP

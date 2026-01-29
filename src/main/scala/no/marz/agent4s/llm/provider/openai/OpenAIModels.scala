@@ -8,9 +8,21 @@ import io.circe.syntax._
 case class OpenAIChatRequest(
   model: String,
   messages: Seq[OpenAIMessage],
+  tools: Option[Seq[OpenAITool]] = None,
   temperature: Option[Double] = None,
   max_tokens: Option[Int] = None,
   top_p: Option[Double] = None
+)
+
+case class OpenAITool(
+  `type`: String,
+  function: OpenAIFunction
+)
+
+case class OpenAIFunction(
+  name: String,
+  description: String,
+  parameters: Json
 )
 
 case class OpenAIMessage(
@@ -42,6 +54,12 @@ case class OpenAIUsage(
 
 // Circe codecs
 object OpenAIModels:
+  given Encoder[OpenAIFunction] = deriveEncoder[OpenAIFunction]
+  given Decoder[OpenAIFunction] = deriveDecoder[OpenAIFunction]
+  
+  given Encoder[OpenAITool] = deriveEncoder[OpenAITool]
+  given Decoder[OpenAITool] = deriveDecoder[OpenAITool]
+  
   given Encoder[OpenAIMessage] = deriveEncoder[OpenAIMessage]
   given Decoder[OpenAIMessage] = deriveDecoder[OpenAIMessage]
   
