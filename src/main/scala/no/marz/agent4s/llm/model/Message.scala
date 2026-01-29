@@ -15,6 +15,7 @@ object Message:
     val role: Role = Role.Assistant
 
   final case class Tool(
+      toolCallId: String,
       toolName: String,
       content: String
   ) extends Message:

@@ -27,7 +27,21 @@ case class OpenAIFunction(
 
 case class OpenAIMessage(
   role: String,
-  content: String
+  content: Option[String] = None,
+  tool_calls: Option[Seq[OpenAIToolCall]] = None,
+  tool_call_id: Option[String] = None,
+  name: Option[String] = None
+)
+
+case class OpenAIToolCall(
+  id: String,
+  `type`: String,
+  function: OpenAIFunctionCall
+)
+
+case class OpenAIFunctionCall(
+  name: String,
+  arguments: String
 )
 
 // Response models
@@ -59,6 +73,12 @@ object OpenAIModels:
   
   given Encoder[OpenAITool] = deriveEncoder[OpenAITool]
   given Decoder[OpenAITool] = deriveDecoder[OpenAITool]
+  
+  given Encoder[OpenAIFunctionCall] = deriveEncoder[OpenAIFunctionCall]
+  given Decoder[OpenAIFunctionCall] = deriveDecoder[OpenAIFunctionCall]
+  
+  given Encoder[OpenAIToolCall] = deriveEncoder[OpenAIToolCall]
+  given Decoder[OpenAIToolCall] = deriveDecoder[OpenAIToolCall]
   
   given Encoder[OpenAIMessage] = deriveEncoder[OpenAIMessage]
   given Decoder[OpenAIMessage] = deriveDecoder[OpenAIMessage]

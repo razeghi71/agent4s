@@ -66,15 +66,33 @@ class OpenAIProvider[F[_]: Async](
   private def convertMessage(msg: DomainMessage): OpenAIMessage =
     msg match
       case DomainMessage.System(content) => 
-        OpenAIMessage("system", content)
+        OpenAIMessage(role = "system", content = Some(content))
       case DomainMessage.User(content) => 
-        OpenAIMessage("user", content)
+        OpenAIMessage(role = "user", content = Some(content))
       case DomainMessage.Assistant(AssistantContent.Text(value)) => 
-        OpenAIMessage("assistant", value)
-      case DomainMessage.Assistant(AssistantContent.ToolCalls()) =>
-        throw new IllegalArgumentException("Tool calls not yet supported")
-      case DomainMessage.Tool(_, _) => 
-        throw new IllegalArgumentException("Tool messages not yet supported")
+        OpenAIMessage(role = "assistant", content = Some(value))
+      case DomainMessage.Assistant(AssistantContent.ToolCalls(calls)) =>
+        OpenAIMessage(
+          role = "assistant",
+          content = None,
+          tool_calls = Some(calls.map { call =>
+            OpenAIToolCall(
+              id = call.id,
+              `type` = "function",
+              function = OpenAIFunctionCall(
+                name = call.name,
+                arguments = call.arguments.noSpaces
+              )
+            )
+          })
+        )
+      case DomainMessage.Tool(toolCallId, toolName, content) => 
+        OpenAIMessage(
+          role = "tool",
+          content = Some(content),
+          tool_call_id = Some(toolCallId),
+          name = Some(toolName)
+        )
 
   private def buildHttpRequest(req: OpenAIChatRequest): Request[F] =
     val authHeader = Authorization(Credentials.Token(AuthScheme.Bearer, config.apiKey))
@@ -95,9 +113,28 @@ class OpenAIProvider[F[_]: Async](
         id = res.id,
         model = res.model,
         choices = res.choices.map { choice =>
+          val message = choice.message.tool_calls match {
+            case Some(toolCalls) =>
+              val domainToolCalls = toolCalls.map { tc =>
+                io.circe.parser.parse(tc.function.arguments) match {
+                  case Right(json) =>
+                    ToolCall(
+                      id = tc.id,
+                      name = tc.function.name,
+                      arguments = json
+                    )
+                  case Left(err) =>
+                    throw new RuntimeException(s"Failed to parse tool call arguments: ${err.getMessage}")
+                }
+              }
+              DomainMessage.Assistant(AssistantContent.ToolCalls(domainToolCalls))
+            case None =>
+              DomainMessage.Assistant(AssistantContent.Text(choice.message.content.getOrElse("")))
+          }
+          
           ChatCompletionChoice(
             index = choice.index,
-            message = DomainMessage.Assistant(AssistantContent.Text(choice.message.content)),
+            message = message,
             finishReason = choice.finish_reason
           )
         },

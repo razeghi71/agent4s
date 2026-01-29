@@ -89,7 +89,7 @@ class ToolDefinitionSuite extends munit.FunSuite:
     )
     
     // Should throw IllegalArgumentException for duplicate names
-    interceptMessage[IllegalArgumentException]("Duplicate tool names found: get_weather") {
+    interceptMessage[IllegalArgumentException]("requirement failed: Duplicate tool names found: get_weather") {
       ChatCompletionRequest(
         model = "gpt-4",
         messages = Seq(Message.User("test")),

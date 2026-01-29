@@ -1,9 +1,16 @@
 package no.marz.agent4s.llm.model
 
+import io.circe.Json
+
 sealed trait AssistantContent
 
 object AssistantContent:
   final case class Text(value: String) extends AssistantContent
 
-  // Empty case class for now - will be populated later
-  final case class ToolCalls() extends AssistantContent
+  final case class ToolCalls(calls: Seq[ToolCall]) extends AssistantContent
+
+case class ToolCall(
+  id: String,
+  name: String,
+  arguments: Json
+)
