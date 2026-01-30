@@ -27,15 +27,12 @@ object ChatNode extends GraphNode[IO, AgentState]:
   }
 
 object ToolNode extends GraphNode[IO, AgentState]:
-  override def execute(state: AgentState): IO[AgentState] = ???
+  override def execute(state: AgentState): IO[AgentState] =
+    IO.pure(state.copy(messages = "tool executed" :: state.messages))
 
 object EndNode extends GraphNode[IO, AgentState]:
-  override def execute(state: AgentState): IO[AgentState] = ???
-
-object StartChat extends GraphEdge[IO, StartNode.type, ChatNode.type]
-object ChatTool extends GraphEdge[IO, ChatNode.type, ToolNode.type]
-object ChatEnd extends GraphEdge[IO, ChatNode.type, EndNode.type]
-object ToolChat extends GraphEdge[IO, ToolNode.type, ChatNode.type]
+  override def execute(state: AgentState): IO[AgentState] =
+    IO.pure(state.copy(messages = "done" :: state.messages))
 
 enum WeatherUnit:
   case C, F
@@ -64,12 +61,25 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
     IO.pure(GetWeatherOutput(22.5f, input.unit.fold("C")(_.toString)))
 
 @main def hello(): Unit =
-  val ValidGraph = new Graph[IO](
-    nodes = StartNode @: ChatNode @: ToolNode @: EndNode @: GraphNodeNil[IO](),
-    edges = StartChat -: ChatTool -: ChatEnd -: ToolChat -: GraphEdgeNil[IO]()
-  )
+  // Build graph using the new fluent API
+  val graph = GraphBuilder[IO, AgentState]()
+    .addNode(StartNode)
+    .addNode(ChatNode)
+    .addNode(ToolNode)
+    .addNode(EndNode)
+    .connect(StartNode).to(ChatNode)
+    .connect(ChatNode).when(_.messages.isEmpty).to(ToolNode)
+    .connect(ChatNode).otherwise.to(EndNode)
+    .connect(ToolNode).to(ChatNode)
+    .startFrom(StartNode)
+    .build()
 
-  // Test execution
+  println(
+    s"Graph created with ${graph.nodes.size} nodes and ${graph.edges.size} edges"
+  )
+  println(s"Entry point: ${graph.entryPoint}")
+
+  // Test tool execution
   val testInput = GetWeatherInput("Paris, FR", Some(WeatherUnit.C), None, None)
   val result = GetWeatherTool.execute(testInput).unsafeRunSync()
-  println(s"Execution result: $result")
+  println(s"Tool execution result: $result")
