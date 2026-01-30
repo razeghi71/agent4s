@@ -27,7 +27,8 @@ import cats.Monad
 class GraphBuilder[F[_]: Monad, State <: GraphState] private (
     private val nodes: List[GraphNode[F, State]],
     private val edges: List[Edge[F, State]],
-    private val entryPoint: Option[GraphNode[F, State]]
+    private val entryPoint: Option[GraphNode[F, State]],
+    private val terminalNode: TerminalNode[F, State]
 ):
 
   /** Add a node to the graph.
@@ -38,7 +39,7 @@ class GraphBuilder[F[_]: Monad, State <: GraphState] private (
     *   A new builder with the node added
     */
   def addNode(node: GraphNode[F, State]): GraphBuilder[F, State] =
-    new GraphBuilder(node :: nodes, edges, entryPoint)
+    new GraphBuilder(node :: nodes, edges, entryPoint, terminalNode)
 
   /** Start connecting edges from a source node.
     *
@@ -58,14 +59,20 @@ class GraphBuilder[F[_]: Monad, State <: GraphState] private (
     *   A new builder with the entry point set
     */
   def startFrom(node: GraphNode[F, State]): GraphBuilder[F, State] =
-    new GraphBuilder(nodes, edges, Some(node))
+    new GraphBuilder(nodes, edges, Some(node), terminalNode)
 
   /** Internal method to add an edge. Called by EdgeBuilder.
     */
   private[graph] def addEdge(
       edge: Edge[F, State]
   ): GraphBuilder[F, State] =
-    new GraphBuilder(nodes, edge :: edges, entryPoint)
+    new GraphBuilder(nodes, edge :: edges, entryPoint, terminalNode)
+
+  /** Get the terminal node for this graph.
+    *
+    * Internal method used by EdgeBuilder for .toTerminal()
+    */
+  private[graph] def getTerminalNode: TerminalNode[F, State] = terminalNode
 
   /** Build the final Graph instance.
     *
@@ -90,14 +97,14 @@ class GraphBuilder[F[_]: Monad, State <: GraphState] private (
       "Entry point must be a registered node"
     )
 
-    // Validate all edge nodes are registered
+    // Validate all edge nodes are registered (except terminal node)
     edges.foreach { edge =>
       require(
-        nodes.contains(edge.from),
+        nodes.contains(edge.from) || edge.from == terminalNode,
         s"Edge source node not registered: ${edge.from}"
       )
       require(
-        nodes.contains(edge.to),
+        nodes.contains(edge.to) || edge.to == terminalNode,
         s"Edge target node not registered: ${edge.to}"
       )
     }
@@ -117,8 +124,15 @@ class GraphBuilder[F[_]: Monad, State <: GraphState] private (
       )
     }
 
+    // Include terminal node in final nodes set if any edge references it
+    val finalNodes =
+      if edges.exists(e => e.to == terminalNode || e.from == terminalNode) then
+        terminalNode :: nodes
+      else
+        nodes
+
     new Graph[F, State](
-      nodes.reverse, // Reverse to maintain insertion order
+      finalNodes.reverse, // Reverse to maintain insertion order
       edges.reverse,
       entryPoint.get
     )
@@ -134,7 +148,8 @@ object GraphBuilder:
     *   A new empty GraphBuilder
     */
   def apply[F[_]: Monad, State <: GraphState](): GraphBuilder[F, State] =
-    new GraphBuilder[F, State](List.empty, List.empty, None)
+    val terminal = TerminalNode[F, State]()
+    new GraphBuilder[F, State](List.empty, List.empty, None, terminal)
 
 /** Intermediate builder for fluent edge construction.
   *
@@ -166,6 +181,18 @@ class EdgeBuilder[F[_], State <: GraphState] private[graph] (
     val edge = ConditionalEdge(from, target, cond)
     parent.addEdge(edge)
 
+  /** Connect to the terminal node (end of execution).
+    *
+    * Use this when the graph should stop executing after this node.
+    *
+    * @return
+    *   The parent GraphBuilder for continued chaining
+    */
+  def toTerminal(): GraphBuilder[F, State] =
+    val cond = condition.getOrElse((_: State) => true)
+    val edge = ConditionalEdge(from, parent.getTerminalNode, cond)
+    parent.addEdge(edge)
+
   /** Add a condition for edge traversal.
     *
     * The edge will only be taken if the condition evaluates to true.
@@ -190,4 +217,8 @@ class EdgeBuilder[F[_], State <: GraphState] private[graph] (
     new EdgeBuilder(parent, from, None):
       override def to(target: GraphNode[F, State]): GraphBuilder[F, State] =
         val edge = OtherwiseEdge(from, target)
+        parent.addEdge(edge)
+
+      override def toTerminal(): GraphBuilder[F, State] =
+        val edge = OtherwiseEdge(from, parent.getTerminalNode)
         parent.addEdge(edge)

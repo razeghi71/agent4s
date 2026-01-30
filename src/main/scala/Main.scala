@@ -30,10 +30,6 @@ object ToolNode extends GraphNode[IO, AgentState]:
   override def execute(state: AgentState): IO[AgentState] =
     IO.pure(state.copy(messages = "tool executed" :: state.messages))
 
-object EndNode extends GraphNode[IO, AgentState]:
-  override def execute(state: AgentState): IO[AgentState] =
-    IO.pure(state.copy(messages = "done" :: state.messages))
-
 enum WeatherUnit:
   case C, F
 
@@ -61,15 +57,13 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
     IO.pure(GetWeatherOutput(22.5f, input.unit.fold("C")(_.toString)))
 
 @main def hello(): Unit =
-  // Build graph using the new fluent API
   val graph = GraphBuilder[IO, AgentState]()
     .addNode(StartNode)
     .addNode(ChatNode)
     .addNode(ToolNode)
-    .addNode(EndNode)
     .connect(StartNode).to(ChatNode)
     .connect(ChatNode).when(_.messages.isEmpty).to(ToolNode)
-    .connect(ChatNode).otherwise.to(EndNode)
+    .connect(ChatNode).otherwise.toTerminal() // Use terminal node
     .connect(ToolNode).to(ChatNode)
     .startFrom(StartNode)
     .build()
