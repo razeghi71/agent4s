@@ -79,3 +79,9 @@ object ToolRegistry:
 
   def empty[F[_]](using MonadError[F, Throwable]): ToolRegistry[F] =
     new ToolRegistry[F](Map.empty)
+
+  extension (toolCall: ToolCall)
+    def execute[F[_]](returnErrorsAsToolMessages: Boolean = true)(using
+        registry: ToolRegistry[F]
+    ): F[Message.Tool] =
+      registry.execute(toolCall, returnErrorsAsToolMessages)

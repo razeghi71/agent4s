@@ -2,30 +2,36 @@ import cats.effect.{IO, IOApp}
 import cats.syntax.all.*
 import no.marz.agent4s.llm.model.*
 import no.marz.agent4s.llm.provider.openai.{OpenAIProvider, OpenAIConfig}
+import no.marz.agent4s.llm.ToolRegistry
+import no.marz.agent4s.llm.ToolRegistry.execute
 import io.circe.Json
 import io.circe.syntax.*
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
 
-// Example tool input/output for weather
 case class WeatherInput(location: String, unit: Option[String])
 case class WeatherOutput(temperature: Double, conditions: String, unit: String)
 
-// Example tool implementation
 object WeatherTool extends Tool[IO, WeatherInput, WeatherOutput]:
   def name = "get_weather"
   def description = "Get the current weather for a location"
-  
+
   def execute(input: WeatherInput): IO[WeatherOutput] =
-    IO.pure(WeatherOutput(
-      temperature = 72.0,
-      conditions = "Sunny",
-      unit = input.unit.getOrElse("fahrenheit")
-    ))
+    IO.pure(
+      WeatherOutput(
+        temperature = 72.0,
+        conditions = "Sunny",
+        unit = input.unit.getOrElse("fahrenheit")
+      )
+    )
 
 object ChatExample extends IOApp.Simple:
   def run: IO[Unit] =
+    val registry = ToolRegistry
+      .empty[IO]
+      .register(WeatherTool)
+
     OpenAIProvider.resourceFromEnv[IO].use { provider =>
       for
         _ <- IO.println("=" * 60)
@@ -36,11 +42,13 @@ object ChatExample extends IOApp.Simple:
         _ <- IO.println("=" * 60)
         _ <- IO.println("TEST 2: Chat with tool calling")
         _ <- IO.println("=" * 60)
-        _ <- toolCallingExample(provider)
+        _ <- toolCallingExample(provider, registry)
       yield ()
     }
-  
-  def basicChatExample(provider: no.marz.agent4s.llm.LLMProvider[IO]): IO[Unit] =
+
+  def basicChatExample(
+      provider: no.marz.agent4s.llm.LLMProvider[IO]
+  ): IO[Unit] =
     val request = ChatCompletionRequest(
       model = "gpt-4o-mini",
       messages = Seq(
@@ -60,39 +68,48 @@ object ChatExample extends IOApp.Simple:
         )
       }
     yield ()
-  
-  def toolCallingExample(provider: no.marz.agent4s.llm.LLMProvider[IO]): IO[Unit] =
+
+  def toolCallingExample(
+      provider: no.marz.agent4s.llm.LLMProvider[IO],
+      registry: ToolRegistry[IO]
+  ): IO[Unit] =
+    given ToolRegistry[IO] = registry
+
     val request = ChatCompletionRequest(
-      model = "gpt-4o-mini",
+      model = "gpt-5-nano",
       messages = Seq(
         Message.System("You are a helpful weather assistant."),
         Message.User("What's the weather like in San Francisco?")
       ),
-      tools = Set(WeatherTool.toToolSchema),
+      tools = registry.getSchemas,
       temperature = Some(0.7)
     )
 
     for
       _ <- IO.println("Sending request with tools to OpenAI...")
-      _ <- IO.println(s"Tools available: ${request.tools.map(_.name).mkString(", ")}")
+      _ <- IO.println(
+        s"Tools available: ${request.tools.map(_.name).mkString(", ")}"
+      )
       response <- provider.chatCompletion(request)
       _ <- IO.println(s"\nFinish reason: ${response.choices.head.finishReason}")
-      
-      // Check if assistant called a tool
-      _ <- response.choices.head.message match {
+
+      _ <- response.choices.head.message match
         case Message.Assistant(AssistantContent.Text(text)) =>
           IO.println(s"Text response: $text")
         case Message.Assistant(AssistantContent.ToolCalls(calls)) =>
-          IO.println(s"Tool calls requested (${calls.length}):")
-          calls.traverse_ { call =>
-            IO.println(s"  - Tool: ${call.name}") *>
-            IO.println(s"    ID: ${call.id}") *>
-            IO.println(s"    Arguments: ${call.arguments.spaces2}")
-          }
+          IO.println(s"Tool calls requested (${calls.length}):") *>
+            calls.traverse_ { call =>
+              IO.println(s"  - Tool: ${call.name}") *>
+                IO.println(s"    ID: ${call.id}") *>
+                IO.println(s"    Arguments: ${call.arguments.spaces2}") *>
+                IO.println(s"\nExecuting tool call...") *>
+                call.execute[IO]().flatMap { toolMessage =>
+                  IO.println(s"Tool result: ${toolMessage.content}")
+                }
+            }
         case other =>
           IO.println(s"Unexpected message type: $other")
-      }
-      
+
       _ <- response.usage.traverse { usage =>
         IO.println(
           s"\nTokens used: ${usage.totalTokens} (prompt: ${usage.promptTokens}, completion: ${usage.completionTokens})"
