@@ -73,7 +73,23 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
   )
   println(s"Entry point: ${graph.entryPoint}")
 
+  // Execute the graph
+  val executor = new GraphExecutor[IO]()
+  val initialState = AgentState(List.empty)
+
+  println("\n--- Executing Graph ---")
+  val states = executor
+    .run(graph, initialState)
+    .compile
+    .toList
+    .unsafeRunSync()
+
+  println(s"\nExecution completed with ${states.size} states:")
+  states.zipWithIndex.foreach { case (state, idx) =>
+    println(s"  State $idx: messages = ${state.messages.reverse}")
+  }
+
   // Test tool execution
   val testInput = GetWeatherInput("Paris, FR", Some(WeatherUnit.C), None, None)
   val result = GetWeatherTool.execute(testInput).unsafeRunSync()
-  println(s"Tool execution result: $result")
+  println(s"\nTool execution result: $result")
