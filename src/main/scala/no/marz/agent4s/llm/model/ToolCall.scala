@@ -1,9 +1,9 @@
 package no.marz.agent4s.llm.model
 
-//sealed trait ToolCall[F[_]]:
-//  type I
-//  type O
-//
-//  def id: String
-//  def tool: ToolDefinition[I, O]
-//  def input: I
+import io.circe.Json
+
+case class ToolCall(
+    id: String,
+    name: String,
+    arguments: Json
+)
