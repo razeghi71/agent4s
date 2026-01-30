@@ -67,9 +67,9 @@ object JsonSchemaField:
   )(symbol: quotes.reflect.Symbol): Expr[List[(String, Json)]] =
     val annotations = symbol.annotations.view
       .map(_.asExpr)
-      .collect { 
+      .collect {
         case '{ JsonSchemaField($k, $v) } => '{ ($k, $v) }
-        case '{ description($v) } => '{ ("description", $v.asJson) }
+        case '{ description($v) }         => '{ ("description", $v.asJson) }
       }
       .toList
 

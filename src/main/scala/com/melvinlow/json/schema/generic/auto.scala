@@ -26,10 +26,11 @@ trait auto extends instances:
         val isOptional = inline erasedValue[elem] match
           case _: Option[?] => true
           case _            => false
-        FieldInfo(deriveOrSummon[T, elem], isOptional) :: summonFieldInfo[
-          T,
-          elems
-        ]
+        FieldInfo(deriveOrSummon[T, elem], isOptional) ::
+          summonFieldInfo[
+            T,
+            elems
+          ]
       case _: EmptyTuple => Nil
 
   @nowarn

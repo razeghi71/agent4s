@@ -41,7 +41,9 @@ trait instances_low_priority:
 
 // High priority trait specifically for Option to override derivation
 trait instances_option_priority:
-  inline given optionJsonSchemaEncoder[T](using enc: JsonSchemaEncoder[T])
+  inline given optionJsonSchemaEncoder[T](using
+      enc: JsonSchemaEncoder[T]
+  )
       : JsonSchemaEncoder[Option[T]] with
     def schema: Json = enc.schema
 

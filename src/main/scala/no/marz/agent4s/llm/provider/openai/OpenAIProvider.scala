@@ -2,43 +2,45 @@ package no.marz.agent4s.llm.provider.openai
 
 import cats.effect.kernel.Async
 import cats.effect.Resource
-import cats.syntax.all._
-import org.http4s._
+import cats.syntax.all.*
+import org.http4s.*
 import org.http4s.client.Client
 import org.http4s.ember.client.EmberClientBuilder
-import org.http4s.circe._
-import org.http4s.headers._
+import org.http4s.circe.*
+import org.http4s.headers.*
 import org.typelevel.ci.CIString
-import io.circe.syntax._
+import io.circe.syntax.*
 import no.marz.agent4s.llm.LLMProvider
-import no.marz.agent4s.llm.model.{Message => DomainMessage, _}
+import no.marz.agent4s.llm.model.{Message as DomainMessage, *}
 import no.marz.agent4s.llm.provider.openai.OpenAIModels.given
 
 class OpenAIProvider[F[_]: Async](
-  client: Client[F],
-  config: OpenAIConfig
+    client: Client[F],
+    config: OpenAIConfig
 ) extends LLMProvider[F]:
 
-  def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
+  def chatCompletion(request: ChatCompletionRequest)
+      : F[ChatCompletionResponse] =
     for
       // 1. Convert domain request to OpenAI format
       openAIRequest <- toOpenAIRequest(request)
-      
+
       // 2. Build HTTP request
       httpRequest = buildHttpRequest(openAIRequest)
-      
+
       // 3. Execute HTTP call and decode response
       openAIResponse <- client.expect[OpenAIChatResponse](httpRequest)(using
         jsonOf[F, OpenAIChatResponse]
       )
-      
+
       // 4. Convert OpenAI response back to domain format
       response <- fromOpenAIResponse(openAIResponse)
     yield response
 
-  private def toOpenAIRequest(req: ChatCompletionRequest): F[OpenAIChatRequest] =
+  private def toOpenAIRequest(req: ChatCompletionRequest)
+      : F[OpenAIChatRequest] =
     Async[F].delay {
-      val openAITools = if (req.tools.nonEmpty) {
+      val openAITools = if req.tools.nonEmpty then
         Some(req.tools.toSeq.map { toolSchema =>
           OpenAITool(
             `type` = "function",
@@ -49,10 +51,9 @@ class OpenAIProvider[F[_]: Async](
             )
           )
         })
-      } else {
+      else
         None
-      }
-      
+
       OpenAIChatRequest(
         model = req.model,
         messages = req.messages.map(convertMessage),
@@ -65,11 +66,11 @@ class OpenAIProvider[F[_]: Async](
 
   private def convertMessage(msg: DomainMessage): OpenAIMessage =
     msg match
-      case DomainMessage.System(content) => 
+      case DomainMessage.System(content) =>
         OpenAIMessage(role = "system", content = Some(content))
-      case DomainMessage.User(content) => 
+      case DomainMessage.User(content) =>
         OpenAIMessage(role = "user", content = Some(content))
-      case DomainMessage.Assistant(AssistantContent.Text(value)) => 
+      case DomainMessage.Assistant(AssistantContent.Text(value)) =>
         OpenAIMessage(role = "assistant", content = Some(value))
       case DomainMessage.Assistant(AssistantContent.ToolCalls(calls)) =>
         OpenAIMessage(
@@ -86,7 +87,7 @@ class OpenAIProvider[F[_]: Async](
             )
           })
         )
-      case DomainMessage.Tool(toolCallId, toolName, content) => 
+      case DomainMessage.Tool(toolCallId, toolName, content) =>
         OpenAIMessage(
           role = "tool",
           content = Some(content),
@@ -95,28 +96,32 @@ class OpenAIProvider[F[_]: Async](
         )
 
   private def buildHttpRequest(req: OpenAIChatRequest): Request[F] =
-    val authHeader = Authorization(Credentials.Token(AuthScheme.Bearer, config.apiKey))
+    val authHeader =
+      Authorization(Credentials.Token(AuthScheme.Bearer, config.apiKey))
     val orgHeaders = config.organization
       .map(org => Header.Raw(CIString("OpenAI-Organization"), org))
       .map(h => Headers(h))
       .getOrElse(Headers.empty)
-    
+
     Request[F](
       method = Method.POST,
       uri = Uri.unsafeFromString(s"${config.baseUrl}/chat/completions"),
-      headers = Headers(authHeader, `Content-Type`(MediaType.application.json)) ++ orgHeaders
+      headers =
+        Headers(authHeader, `Content-Type`(MediaType.application.json)) ++
+          orgHeaders
     ).withEntity(req.asJson)
 
-  private def fromOpenAIResponse(res: OpenAIChatResponse): F[ChatCompletionResponse] =
+  private def fromOpenAIResponse(res: OpenAIChatResponse)
+      : F[ChatCompletionResponse] =
     Async[F].delay {
       ChatCompletionResponse(
         id = res.id,
         model = res.model,
         choices = res.choices.map { choice =>
-          val message = choice.message.tool_calls match {
+          val message = choice.message.tool_calls match
             case Some(toolCalls) =>
               val domainToolCalls = toolCalls.map { tc =>
-                io.circe.parser.parse(tc.function.arguments) match {
+                io.circe.parser.parse(tc.function.arguments) match
                   case Right(json) =>
                     ToolCall(
                       id = tc.id,
@@ -124,14 +129,18 @@ class OpenAIProvider[F[_]: Async](
                       arguments = json
                     )
                   case Left(err) =>
-                    throw new RuntimeException(s"Failed to parse tool call arguments: ${err.getMessage}")
-                }
+                    throw new RuntimeException(
+                      s"Failed to parse tool call arguments: ${err.getMessage}"
+                    )
               }
-              DomainMessage.Assistant(AssistantContent.ToolCalls(domainToolCalls))
+              DomainMessage.Assistant(
+                AssistantContent.ToolCalls(domainToolCalls)
+              )
             case None =>
-              DomainMessage.Assistant(AssistantContent.Text(choice.message.content.getOrElse("")))
-          }
-          
+              DomainMessage.Assistant(
+                AssistantContent.Text(choice.message.content.getOrElse(""))
+              )
+
           ChatCompletionChoice(
             index = choice.index,
             message = message,
@@ -151,6 +160,6 @@ object OpenAIProvider:
     EmberClientBuilder.default[F].build.map { client =>
       new OpenAIProvider[F](client, config)
     }
-  
+
   def resourceFromEnv[F[_]: Async]: Resource[F, LLMProvider[F]] =
     resource(OpenAIConfig.fromEnv)
