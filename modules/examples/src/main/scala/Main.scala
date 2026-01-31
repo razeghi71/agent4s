@@ -6,6 +6,8 @@ import no.marz.agent4s.llm.model.{
   ToolMetadata,
   ToolSchema,
   ChatCompletionRequest,
+  ChatCompletionResponse,
+  HasCitations,
   Message,
   AssistantContent,
   ToolCall
@@ -95,7 +97,8 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
     PerplexityProvider.resourceFromEnv[IO]
   ).tupled.use { case (openAIProvider, perplexityProvider) =>
     // Setup tool registry with both weather and web search tools
-    val webSearchTool = new WebSearchTool[IO](perplexityProvider)
+    // WebSearchTool accepts any provider whose Response type includes HasCitations
+    val webSearchTool = WebSearchTool(perplexityProvider, "sonar")
     
     given toolRegistry: ToolRegistry[IO] =
       ToolRegistry.empty[IO]
