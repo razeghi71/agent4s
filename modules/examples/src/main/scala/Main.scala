@@ -14,9 +14,13 @@ import no.marz.agent4s.llm.model.{
 }
 import no.marz.agent4s.llm.{LLMProvider, ToolRegistry}
 import no.marz.agent4s.llm.ToolRegistry.execute
-import no.marz.agent4s.llm.provider.openai.OpenAIProvider
+import no.marz.agent4s.llm.provider.openai.{
+  OpenAICompletionProvider, OpenAIResponsesProvider
+}
 import no.marz.agent4s.llm.provider.perplexity.PerplexityProvider
-import no.marz.agent4s.tools.{WebSearchTool, WebSearchInput, WebSearchOutput, SearchSource}
+import no.marz.agent4s.tools.{
+  WebSearchTool, WebSearchInput, WebSearchOutput, SearchSource
+}
 import com.melvinlow.json.schema.annotation.description
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
@@ -41,7 +45,7 @@ class ChatNode(llmProvider: LLMProvider[IO], toolRegistry: ToolRegistry[IO])
     extends GraphNode[IO, AgentState]:
   override def execute(state: AgentState): IO[AgentState] =
     val request = ChatCompletionRequest(
-      model = "gpt-4o-mini",
+      model = "gpt-5.2",
       messages = state.messages.reverse, // Reverse to chronological order
       tools = toolRegistry.getSchemas
     )
@@ -93,13 +97,15 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
 
 @main def hello(): Unit =
   val result = (
-    OpenAIProvider.resourceFromEnv[IO],
+    OpenAIResponsesProvider.resourceFromEnv[
+      IO
+    ], // For GPT-4o (Chat Completions API)
     PerplexityProvider.resourceFromEnv[IO]
   ).tupled.use { case (openAIProvider, perplexityProvider) =>
     // Setup tool registry with both weather and web search tools
     // WebSearchTool accepts any provider whose Response type includes HasCitations
     val webSearchTool = WebSearchTool(perplexityProvider, "sonar")
-    
+
     given toolRegistry: ToolRegistry[IO] =
       ToolRegistry.empty[IO]
         .register(GetWeatherTool)

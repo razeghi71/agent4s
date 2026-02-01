@@ -15,7 +15,12 @@ import no.marz.agent4s.llm.model.{Message as DomainMessage, *}
 import no.marz.agent4s.llm.provider.openai.OpenAIModels.given
 import no.marz.agent4s.llm.provider.utils.OpenAICompatibleUtils
 
-class OpenAIProvider[F[_]: Async](
+/** OpenAI Completion Provider using the Chat Completions API.
+  * 
+  * This provider supports models like GPT-4o, GPT-4, GPT-3.5-turbo.
+  * For GPT-5.2 and newer models, use OpenAIResponsesProvider instead.
+  */
+class OpenAICompletionProvider[F[_]: Async](
     client: Client[F],
     config: OpenAIConfig
 ) extends LLMProvider[F]:
@@ -53,11 +58,18 @@ class OpenAIProvider[F[_]: Async](
       orgHeaders
     )
 
-object OpenAIProvider:
+object OpenAICompletionProvider:
   def resource[F[_]: Async](config: OpenAIConfig): Resource[F, LLMProvider[F]] =
     EmberClientBuilder.default[F].build.map { client =>
-      new OpenAIProvider[F](client, config)
+      new OpenAICompletionProvider[F](client, config)
     }
 
   def resourceFromEnv[F[_]: Async]: Resource[F, LLMProvider[F]] =
     resource(OpenAIConfig.fromEnv)
+
+// Backward compatibility alias
+@deprecated("Use OpenAICompletionProvider instead", "0.2.0")
+type OpenAIProvider[F[_]] = OpenAICompletionProvider[F]
+
+@deprecated("Use OpenAICompletionProvider instead", "0.2.0")
+val OpenAIProvider = OpenAICompletionProvider

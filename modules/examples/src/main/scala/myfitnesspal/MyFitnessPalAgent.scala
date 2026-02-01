@@ -11,7 +11,7 @@ import no.marz.agent4s.llm.model.{
 }
 import no.marz.agent4s.llm.{LLMProvider, ToolRegistry}
 import no.marz.agent4s.llm.ToolRegistry.execute
-import no.marz.agent4s.llm.provider.openai.OpenAIProvider
+import no.marz.agent4s.llm.provider.openai.OpenAICompletionProvider
 import myfitnesspal.model.MyFitnessPalAgentState
 import myfitnesspal.tools.adb.*
 import myfitnesspal.tools.{
@@ -181,106 +181,107 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
 
 /** Main application */
 @main def myFitnessPalAgent(): Unit =
-  val result = OpenAIProvider.resourceFromEnv[IO].use { openAIProvider =>
-    // Configure tools
-    given tapTool: TapTool[IO] = new TapTool[IO]
-    given typeTextTool: TypeTextTool[IO] = new TypeTextTool[IO]
-    given swipeTool: SwipeTool[IO] = new SwipeTool[IO]
-    given pressKeyTool: PressKeyTool[IO] = new PressKeyTool[IO]
-    given launchAppTool: LaunchAppTool[IO] = new LaunchAppTool[IO]
-    given killAppTool: KillAppTool[IO] = new KillAppTool[IO]
-    given getUITool: GetUITool[IO] = new GetUITool[IO]
-    given executeShellTool: ExecuteShellTool[IO] = new ExecuteShellTool[IO]
-    given uiParserTool: UIParserTool[IO] = new UIParserTool[IO]
-    given getUserInputTool: GetUserInputTool[IO] = new GetUserInputTool[IO]
-    given emulatorTool: EmulatorManagerTool[IO] =
-      new EmulatorManagerTool[IO]("Pixel_6_API_36")
+  val result = OpenAICompletionProvider.resourceFromEnv[IO].use {
+    openAIProvider =>
+      // Configure tools
+      given tapTool: TapTool[IO] = new TapTool[IO]
+      given typeTextTool: TypeTextTool[IO] = new TypeTextTool[IO]
+      given swipeTool: SwipeTool[IO] = new SwipeTool[IO]
+      given pressKeyTool: PressKeyTool[IO] = new PressKeyTool[IO]
+      given launchAppTool: LaunchAppTool[IO] = new LaunchAppTool[IO]
+      given killAppTool: KillAppTool[IO] = new KillAppTool[IO]
+      given getUITool: GetUITool[IO] = new GetUITool[IO]
+      given executeShellTool: ExecuteShellTool[IO] = new ExecuteShellTool[IO]
+      given uiParserTool: UIParserTool[IO] = new UIParserTool[IO]
+      given getUserInputTool: GetUserInputTool[IO] = new GetUserInputTool[IO]
+      given emulatorTool: EmulatorManagerTool[IO] =
+        new EmulatorManagerTool[IO]("Pixel_6_API_36")
 
-    // Setup tool registry
-    given toolRegistry: ToolRegistry[IO] =
-      ToolRegistry
-        .empty[IO]
-        .register(tapTool)
-        .register(typeTextTool)
-        .register(swipeTool)
-        .register(pressKeyTool)
-        .register(getUITool)
-        .register(executeShellTool)
-        .register(uiParserTool)
-        .register(getUserInputTool)
+      // Setup tool registry
+      given toolRegistry: ToolRegistry[IO] =
+        ToolRegistry
+          .empty[IO]
+          .register(tapTool)
+          .register(typeTextTool)
+          .register(swipeTool)
+          .register(pressKeyTool)
+          .register(getUITool)
+          .register(executeShellTool)
+          .register(uiParserTool)
+          .register(getUserInputTool)
 
-    // Create nodes
-    val ensureEmulatorNode = new EnsureEmulatorNode
-    val launchAppNode = new LaunchAppNode
-    val chatNode =
-      new ChatNode(
-        openAIProvider,
-        toolRegistry,
-        delayBetweenCalls = 2.seconds
+      // Create nodes
+      val ensureEmulatorNode = new EnsureEmulatorNode
+      val launchAppNode = new LaunchAppNode
+      val chatNode =
+        new ChatNode(
+          openAIProvider,
+          toolRegistry,
+          delayBetweenCalls = 2.seconds
+        )
+      val toolNode = new ToolNode
+
+      // Build simplified graph - LLM decides when to ask for user input via tool
+      val graph = GraphBuilder[IO, MyFitnessPalAgentState]()
+        .addNode(StartNode)
+        .addNode(ensureEmulatorNode)
+        .addNode(launchAppNode)
+        .addNode(chatNode)
+        .addNode(toolNode)
+        .connect(StartNode).to(ensureEmulatorNode)
+        .connect(ensureEmulatorNode).to(launchAppNode)
+        .connect(launchAppNode).to(chatNode)
+        .connect(chatNode).when(_.hasToolCalls).to(toolNode)
+        .connect(chatNode).otherwise.toTerminal()
+        .connect(toolNode).to(chatNode)
+        .startFrom(StartNode)
+        .build()
+
+      println(s"Graph created with ${graph.nodes.size} nodes")
+
+      // Get user input
+      println("\n=== MyFitnessPal Food Logger ===")
+      println("Please enter the foods you want to log:")
+      println(
+        "Example: 113g fried minced beef, 135g white rice cooked, 50g greek yogurt"
       )
-    val toolNode = new ToolNode
+      print("> ")
+      val userInput = Option(scala.io.StdIn.readLine()).getOrElse {
+        println("No input provided, using example...")
+        "2 eggs, 1 cup oatmeal, 1 banana"
+      }
+      println(s"Processing: $userInput")
 
-    // Build simplified graph - LLM decides when to ask for user input via tool
-    val graph = GraphBuilder[IO, MyFitnessPalAgentState]()
-      .addNode(StartNode)
-      .addNode(ensureEmulatorNode)
-      .addNode(launchAppNode)
-      .addNode(chatNode)
-      .addNode(toolNode)
-      .connect(StartNode).to(ensureEmulatorNode)
-      .connect(ensureEmulatorNode).to(launchAppNode)
-      .connect(launchAppNode).to(chatNode)
-      .connect(chatNode).when(_.hasToolCalls).to(toolNode)
-      .connect(chatNode).otherwise.toTerminal()
-      .connect(toolNode).to(chatNode)
-      .startFrom(StartNode)
-      .build()
+      // Initial state with user message
+      val initialState = MyFitnessPalAgentState(
+        messages = List(Message.User(userInput))
+      )
 
-    println(s"Graph created with ${graph.nodes.size} nodes")
-
-    // Get user input
-    println("\n=== MyFitnessPal Food Logger ===")
-    println("Please enter the foods you want to log:")
-    println(
-      "Example: 113g fried minced beef, 135g white rice cooked, 50g greek yogurt"
-    )
-    print("> ")
-    val userInput = Option(scala.io.StdIn.readLine()).getOrElse {
-      println("No input provided, using example...")
-      "2 eggs, 1 cup oatmeal, 1 banana"
-    }
-    println(s"Processing: $userInput")
-
-    // Initial state with user message
-    val initialState = MyFitnessPalAgentState(
-      messages = List(Message.User(userInput))
-    )
-
-    // Execute graph
-    val executor = new GraphExecutor[IO]()
-    executor
-      .run(graph, initialState)
-      .compile
-      .toList
-      .flatMap { states =>
-        IO {
-          println(s"\n=== Execution completed with ${states.size} states ===")
-          states.lastOption.foreach { finalState =>
-            println("\n=== Final Conversation ===")
-            finalState.messages.reverse.foreach {
-              case Message.System(_)     => // Don't print system messages
-              case Message.User(content) =>
-                println(s"\nUser: $content")
-              case Message.Assistant(AssistantContent.Text(text)) =>
-                println(s"\nAssistant: $text")
-              case Message.Assistant(AssistantContent.ToolCalls(calls)) =>
-                println(s"\nAssistant: [Called ${calls.size} tools]")
-              case Message.Tool(_, name, content) =>
-                println(s"\nTool ($name): ${content.take(100)}...")
+      // Execute graph
+      val executor = new GraphExecutor[IO]()
+      executor
+        .run(graph, initialState)
+        .compile
+        .toList
+        .flatMap { states =>
+          IO {
+            println(s"\n=== Execution completed with ${states.size} states ===")
+            states.lastOption.foreach { finalState =>
+              println("\n=== Final Conversation ===")
+              finalState.messages.reverse.foreach {
+                case Message.System(_)     => // Don't print system messages
+                case Message.User(content) =>
+                  println(s"\nUser: $content")
+                case Message.Assistant(AssistantContent.Text(text)) =>
+                  println(s"\nAssistant: $text")
+                case Message.Assistant(AssistantContent.ToolCalls(calls)) =>
+                  println(s"\nAssistant: [Called ${calls.size} tools]")
+                case Message.Tool(_, name, content) =>
+                  println(s"\nTool ($name): ${content.take(100)}...")
+              }
             }
           }
         }
-      }
   }
 
   result.unsafeRunSync()
