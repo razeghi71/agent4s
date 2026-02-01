@@ -78,5 +78,8 @@ lazy val examples = (project in file("modules/examples"))
     name := "agent4s-examples",
     version := "0.1.0-SNAPSHOT",
     scalaVersion := scala3Version,
+    libraryDependencies ++= commonDependencies ++ Seq(
+      "org.scala-lang.modules" %% "scala-xml" % "2.1.0"
+    ),
     publish / skip := true
   )

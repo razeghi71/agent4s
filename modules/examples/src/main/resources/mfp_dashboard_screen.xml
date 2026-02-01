@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<!-- MyFitnessPal Dashboard Screen - Captured for reference -->
+<!-- Key elements:
+  - Bottom nav: Dashboard, Diary, Add, Plan, More
+  - Add button: imageBottomNavItem [476,2199][597,2325]
+  - Diary button: buttonDiary [251,2187][481,2334]
+  - Logging Progress card with iconLoggingProgressCardAddFood [904,461][1030,587]
+-->
+<hierarchy rotation="0">
+  <node text="Dashboard" resource-id="buttonDashboard" bounds="[21,2187][251,2334]" selected="true"/>
+  <node text="Diary" resource-id="buttonDiary" bounds="[251,2187][481,2334]" clickable="true"/>
+  <node content-desc="Add" resource-id="imageBottomNavItem" bounds="[476,2199][597,2325]" clickable="true"/>
+  <node text="Plan" resource-id="buttonMealPlanning" bounds="[597,2187][828,2334]" clickable="true"/>
+  <node text="More" resource-id="buttonMore" bounds="[828,2187][1059,2334]" clickable="true"/>
+  <node resource-id="iconLoggingProgressCardAddFood" bounds="[904,461][1030,587]" clickable="true"/>
+</hierarchy>
