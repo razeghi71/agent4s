@@ -54,6 +54,25 @@ case class UIElement(
   def descendants: List[UIElement] =
     this :: children.flatMap(_.descendants)
 
+  /** Generate a compact single-line representation for LLM consumption
+    * Format: [id] label (shortClass) [actions] @ bounds
+    */
+  def toCompactLine(id: Int): String =
+    val label = text
+      .orElse(contentDesc)
+      .orElse(resourceId.map(_.split("/").lastOption.getOrElse("")))
+      .getOrElse("(no label)")
+    val shortClass = className.split("\\.").lastOption.getOrElse(className)
+    val actions = List(
+      if clickable then Some("click") else None,
+      if scrollable then Some("scroll") else None,
+      if focusable then Some("focus") else None
+    ).flatten
+    val actionsStr = if actions.nonEmpty then s" [${actions.mkString(",")}]" else ""
+    val boundsStr = s"[${bounds.x1},${bounds.y1}][${bounds.x2},${bounds.y2}]"
+    
+    s"[$id] $label ($shortClass)$actionsStr @ $boundsStr"
+
 object UIElement:
   /** Find all elements matching a predicate in tree */
   def findAll(
@@ -92,3 +111,42 @@ object UIElement:
   /** Find all clickable elements */
   def findClickable(root: UIElement): List[UIElement] =
     findAll(root, _.clickable)
+
+  /** Find all actionable or informative elements (for LLM consumption)
+    * 
+    * Filters to only elements that are:
+    * - Clickable, scrollable, or focusable (actionable)
+    * - Have text or content description (informative)
+    * - Are enabled
+    */
+  def findActionable(root: UIElement): List[UIElement] =
+    findAll(root, elem => 
+      elem.enabled && (
+        elem.clickable || 
+        elem.scrollable || 
+        elem.focusable ||
+        elem.text.isDefined || 
+        elem.contentDesc.isDefined
+      )
+    )
+
+  /** Generate a compact text representation for LLM consumption
+    * 
+    * This dramatically reduces tokens by:
+    * - Only including actionable/informative elements
+    * - Using short class names
+    * - Using concise format: [id] label (type) [actions] @ bounds
+    * 
+    * @param root The root UIElement
+    * @return Compact multi-line string representation
+    */
+  def toCompactText(root: UIElement): String =
+    val actionable = findActionable(root)
+    val lines = actionable.zipWithIndex.map { case (elem, idx) =>
+      elem.toCompactLine(idx)
+    }
+    s"Elements: ${actionable.size}\n" + lines.mkString("\n")
+
+  /** Estimate token count for compact representation */
+  def estimateTokens(root: UIElement): Int =
+    toCompactText(root).split("\\s+").length

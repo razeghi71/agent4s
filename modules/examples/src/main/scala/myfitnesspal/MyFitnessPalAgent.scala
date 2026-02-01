@@ -19,6 +19,7 @@ import myfitnesspal.tools.{
 }
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
+import no.marz.agent4s.llm.provider.claude.ClaudeProvider
 
 /** Nodes for MyFitnessPal food logging graph */
 
@@ -132,7 +133,7 @@ class ChatNode(
     val messages = Message.System(SystemPrompt.prompt) :: state.messages.reverse
 
     val request = ChatCompletionRequest(
-      model = "gpt-4o",
+      model = "claude-sonnet-4-5",
       messages = messages,
       tools = toolRegistry.getSchemas
     )
@@ -181,8 +182,8 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
 
 /** Main application */
 @main def myFitnessPalAgent(): Unit =
-  val result = OpenAICompletionProvider.resourceFromEnv[IO].use {
-    openAIProvider =>
+  val result = ClaudeProvider.resourceFromEnv[IO].use {
+    provider =>
       // Configure tools
       given tapTool: TapTool[IO] = new TapTool[IO]
       given typeTextTool: TypeTextTool[IO] = new TypeTextTool[IO]
@@ -215,7 +216,7 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
       val launchAppNode = new LaunchAppNode
       val chatNode =
         new ChatNode(
-          openAIProvider,
+          provider,
           toolRegistry,
           delayBetweenCalls = 2.seconds
         )
