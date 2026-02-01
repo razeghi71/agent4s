@@ -15,17 +15,39 @@ import no.marz.agent4s.llm.LLMProvider
 import no.marz.agent4s.llm.model.{Message as DomainMessage, *}
 import no.marz.agent4s.llm.provider.claude.ClaudeModels.given
 
+/** Rate limit error with retry information.
+  * 
+  * Thrown when Claude API returns 429. Contains optional retry-after hint
+  * from the API response headers.
+  * 
+  * Users can catch this and implement their own retry logic:
+  * {{{
+  * provider.chatCompletion(request).handleErrorWith {
+  *   case RateLimitException(msg, Some(seconds)) =>
+  *     IO.sleep(seconds.seconds) >> provider.chatCompletion(request)
+  *   case RateLimitException(msg, None) =>
+  *     IO.sleep(1.second) >> provider.chatCompletion(request)
+  * }
+  * }}}
+  */
+case class RateLimitException(
+    message: String,
+    retryAfterSeconds: Option[Int]
+) extends RuntimeException(message)
+
 /** Claude Provider using the Anthropic Messages API.
   *
   * This provider supports Claude models (claude-sonnet-4-5, claude-opus-4, etc.)
   * via the Messages API (POST /v1/messages).
   *
-  * Key differences from OpenAI:
+  * Key features:
   * - System prompt is a top-level parameter, not a message
   * - Uses `x-api-key` header instead of Bearer token
   * - Tool definitions use `input_schema` instead of `parameters`
   * - Tool results are content blocks in user messages, not separate messages
   * - `max_tokens` is required
+  * - Prompt caching support for reduced costs and rate limits
+  * - Throws RateLimitException on 429 with retry-after hint (no automatic retry)
   */
 class ClaudeProvider[F[_]: Async](
     client: Client[F],
@@ -47,6 +69,17 @@ class ClaudeProvider[F[_]: Async](
         given EntityDecoder[F, ClaudeResponse] = jsonOf[F, ClaudeResponse]
         if response.status.isSuccess then
           response.as[ClaudeResponse]
+        else if response.status.code == 429 then
+          // Rate limit - extract retry-after header and throw exception
+          val retryAfter = response.headers
+            .get(CIString("retry-after"))
+            .flatMap(_.head.value.toIntOption)
+          response.as[String].flatMap { body =>
+            Async[F].raiseError(RateLimitException(
+              s"Claude API rate limit exceeded: $body",
+              retryAfter
+            ))
+          }
         else
           response.as[String].flatMap { body =>
             Async[F].raiseError(new RuntimeException(
@@ -63,8 +96,15 @@ class ClaudeProvider[F[_]: Async](
   private def toClaudeRequest(req: ChatCompletionRequest): F[ClaudeRequest] =
     Async[F].delay {
       // Extract system prompt from messages (Claude uses top-level system param)
-      val systemPrompt = req.messages.collectFirst {
-        case DomainMessage.System(content) => content
+      // If caching is enabled, wrap in blocks with cache_control
+      val systemPrompt: Option[ClaudeSystemContent] = req.messages.collectFirst {
+        case DomainMessage.System(content) => 
+          if config.enablePromptCaching then
+            ClaudeSystemContent.Blocks(Seq(
+              ClaudeSystemBlock("text", content, Some(CacheControl.ephemeral))
+            ))
+          else
+            ClaudeSystemContent.Text(content)
       }
 
       // Convert messages, handling tool calls and results specially
@@ -73,13 +113,16 @@ class ClaudeProvider[F[_]: Async](
         case _ => false
       })
 
-      // Convert tools to Claude format
+      // Convert tools to Claude format, with cache control on the last tool
       val tools = if req.tools.nonEmpty then
-        Some(req.tools.toSeq.map { toolSchema =>
+        val toolSeq = req.tools.toSeq
+        Some(toolSeq.zipWithIndex.map { case (toolSchema, idx) =>
+          val isLast = idx == toolSeq.size - 1
           ClaudeTool(
             name = toolSchema.name,
             description = toolSchema.description,
-            input_schema = toolSchema.parameters
+            input_schema = toolSchema.parameters,
+            cache_control = if config.enablePromptCaching && isLast then Some(CacheControl.ephemeral) else None
           )
         })
       else
@@ -176,7 +219,7 @@ class ClaudeProvider[F[_]: Async](
       }
 
       val textContent = res.content.collect {
-        case ClaudeContentBlock.Text(text) => text
+        case ClaudeContentBlock.Text(text, _) => text
       }.mkString
 
       // Create the domain message

@@ -4,7 +4,7 @@ import cats.syntax.all.*
 import no.marz.agent4s.llm.model.*
 import no.marz.agent4s.llm.ToolRegistry
 import no.marz.agent4s.llm.ToolRegistry.execute
-import no.marz.agent4s.llm.provider.claude.ClaudeProvider
+import no.marz.agent4s.llm.provider.claude.{ClaudeProvider, ClaudeConfig}
 import com.melvinlow.json.schema.annotation.description
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
@@ -33,16 +33,61 @@ object ClaudeCalculatorTool extends Tool[IO, ClaudeCalculatorInput, ClaudeCalcul
     }
 
   private def evaluateExpression(expr: String): Double =
-    val cleaned = expr.replaceAll("[^0-9+\\-*/.(). ]", "")
+    // Simple expression parser for basic arithmetic
+    val cleaned = expr.replaceAll("[^0-9+\\-*/.(). ]", "").trim
     try
-      // Use JavaScript engine for evaluation (available in JVM)
-      val engine = new javax.script.ScriptEngineManager().getEngineByName("js")
-      if engine != null then
-        engine.eval(cleaned).toString.toDouble
-      else
-        cleaned.trim.toDouble
+      parseAddSub(cleaned.toList.filterNot(_.isSpaceChar))._1
     catch
       case _: Exception => 0.0
+
+  // Recursive descent parser for arithmetic expressions
+  private def parseAddSub(chars: List[Char]): (Double, List[Char]) =
+    val (left, rest) = parseMulDiv(chars)
+    rest match
+      case '+' :: tail =>
+        val (right, remaining) = parseAddSub(tail)
+        (left + right, remaining)
+      case '-' :: tail =>
+        val (right, remaining) = parseMulDiv(tail)
+        val (finalResult, finalRemaining) = continueAddSub(left - right, remaining)
+        (finalResult, finalRemaining)
+      case _ => (left, rest)
+
+  private def continueAddSub(acc: Double, chars: List[Char]): (Double, List[Char]) =
+    chars match
+      case '+' :: tail =>
+        val (right, remaining) = parseMulDiv(tail)
+        continueAddSub(acc + right, remaining)
+      case '-' :: tail =>
+        val (right, remaining) = parseMulDiv(tail)
+        continueAddSub(acc - right, remaining)
+      case _ => (acc, chars)
+
+  private def parseMulDiv(chars: List[Char]): (Double, List[Char]) =
+    val (left, rest) = parseNumber(chars)
+    continueMulDiv(left, rest)
+
+  private def continueMulDiv(acc: Double, chars: List[Char]): (Double, List[Char]) =
+    chars match
+      case '*' :: tail =>
+        val (right, remaining) = parseNumber(tail)
+        continueMulDiv(acc * right, remaining)
+      case '/' :: tail =>
+        val (right, remaining) = parseNumber(tail)
+        continueMulDiv(acc / right, remaining)
+      case _ => (acc, chars)
+
+  private def parseNumber(chars: List[Char]): (Double, List[Char]) =
+    chars match
+      case '(' :: tail =>
+        val (result, rest) = parseAddSub(tail)
+        rest match
+          case ')' :: remaining => (result, remaining)
+          case _ => (result, rest)
+      case _ =>
+        val numChars = chars.takeWhile(c => c.isDigit || c == '.')
+        val remaining = chars.drop(numChars.length)
+        (numChars.mkString.toDouble, remaining)
 
 // Define a greeting tool  
 case class ClaudeGreetingInput(
@@ -80,7 +125,7 @@ object ClaudeGreetingTool extends Tool[IO, ClaudeGreetingInput, ClaudeGreetingOu
     // Example 1: Simple chat without tools
     println("--- Example 1: Simple Chat ---")
     val simpleRequest = ChatCompletionRequest(
-      model = "claude-sonnet-4-20250514", // Claude Sonnet 4
+      model = "claude-haiku-4-5-20251001", // Claude Haiku 4.5 - faster & higher rate limits
       messages = Seq(
         Message.System("You are a helpful assistant. Be concise."),
         Message.User("What is the capital of France?")
@@ -102,7 +147,7 @@ object ClaudeGreetingTool extends Tool[IO, ClaudeGreetingInput, ClaudeGreetingOu
       // Example 2: Chat with tool calling
       _ <- IO.println("\n--- Example 2: Tool Calling ---")
       toolRequest = ChatCompletionRequest(
-        model = "claude-sonnet-4-20250514", 
+        model = "claude-haiku-4-5-20251001", 
         messages = Seq(
           Message.System("You are a helpful assistant with access to tools. Use them when appropriate."),
           Message.User("Please greet Alice in Spanish, and also calculate 15 * 7 + 23")
@@ -147,7 +192,7 @@ object ClaudeGreetingTool extends Tool[IO, ClaudeGreetingInput, ClaudeGreetingOu
         IO.println("\n--- Continuing with tool results ---") >>
         provider.chatCompletion(
           ChatCompletionRequest(
-            model = "claude-sonnet-4-20250514",
+            model = "claude-haiku-4-5-20251001",
             messages = Seq(
               Message.System("You are a helpful assistant. Summarize the tool results."),
               Message.User("Please greet Alice in Spanish, and also calculate 15 * 7 + 23")

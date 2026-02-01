@@ -6,19 +6,26 @@ package no.marz.agent4s.llm.provider.claude
   * @param baseUrl The base URL for the Claude API (default: https://api.anthropic.com/v1)
   * @param anthropicVersion The API version header (default: 2023-06-01)
   * @param defaultMaxTokens Default max tokens if not specified in request (Claude requires this)
+  * @param enablePromptCaching Enable prompt caching for system prompts and tools (reduces costs & rate limits)
   */
 case class ClaudeConfig(
     apiKey: String,
     baseUrl: String = "https://api.anthropic.com/v1",
     anthropicVersion: String = "2023-06-01",
-    defaultMaxTokens: Int = 4096
+    defaultMaxTokens: Int = 4096,
+    enablePromptCaching: Boolean = true
 )
 
 object ClaudeConfig:
   /** Create config from environment variables.
     * 
-    * Required: ANTHROPIC_API_KEY
-    * Optional: ANTHROPIC_BASE_URL, ANTHROPIC_VERSION
+    * Required:
+    *   - ANTHROPIC_API_KEY: Your Anthropic API key
+    * 
+    * Optional:
+    *   - ANTHROPIC_BASE_URL: API base URL (default: https://api.anthropic.com/v1)
+    *   - ANTHROPIC_VERSION: API version header (default: 2023-06-01)
+    *   - ANTHROPIC_ENABLE_CACHING: Enable prompt caching (default: true)
     */
   def fromEnv: ClaudeConfig =
     ClaudeConfig(
@@ -29,5 +36,6 @@ object ClaudeConfig:
         )
       ),
       baseUrl = sys.env.getOrElse("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"),
-      anthropicVersion = sys.env.getOrElse("ANTHROPIC_VERSION", "2023-06-01")
+      anthropicVersion = sys.env.getOrElse("ANTHROPIC_VERSION", "2023-06-01"),
+      enablePromptCaching = sys.env.getOrElse("ANTHROPIC_ENABLE_CACHING", "true").toBoolean
     )

@@ -11,7 +11,6 @@ import no.marz.agent4s.llm.model.{
 }
 import no.marz.agent4s.llm.{LLMProvider, ToolRegistry}
 import no.marz.agent4s.llm.ToolRegistry.execute
-import no.marz.agent4s.llm.provider.openai.OpenAICompletionProvider
 import myfitnesspal.model.MyFitnessPalAgentState
 import myfitnesspal.tools.adb.*
 import myfitnesspal.tools.{
@@ -19,7 +18,7 @@ import myfitnesspal.tools.{
 }
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
-import no.marz.agent4s.llm.provider.claude.ClaudeProvider
+import no.marz.agent4s.llm.provider.claude.{ClaudeProvider, ClaudeConfig}
 
 /** Nodes for MyFitnessPal food logging graph */
 
@@ -106,11 +105,16 @@ class LaunchAppNode(using
           )
       yield result
 
-/** Main reasoning node - uses LLM with tools to interact with app */
+/** Main reasoning node - uses LLM with tools to interact with app 
+ *  
+ *  With prompt caching enabled, the system prompt and tools are cached
+ *  reducing costs by 90% on cache hits and not counting toward rate limits!
+ */
 class ChatNode(
     llmProvider: LLMProvider[IO],
     toolRegistry: ToolRegistry[IO],
-    delayBetweenCalls: FiniteDuration = 2.seconds // Delay to avoid rate limits
+    model: String = "claude-haiku-4-5-20251001", // Haiku 4.5: faster, higher rate limits (50k ITPM)
+    delayBetweenCalls: FiniteDuration = 500.millis // Reduced delay since caching helps with rate limits
 ) extends GraphNode[IO, MyFitnessPalAgentState]:
 
   override def execute(state: MyFitnessPalAgentState)
@@ -133,7 +137,7 @@ class ChatNode(
     val messages = Message.System(SystemPrompt.prompt) :: state.messages.reverse
 
     val request = ChatCompletionRequest(
-      model = "claude-sonnet-4-5",
+      model = model,  // Uses the configurable model (default: Haiku 4.5)
       messages = messages,
       tools = toolRegistry.getSchemas
     )
@@ -182,6 +186,12 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
 
 /** Main application */
 @main def myFitnessPalAgent(): Unit =
+  // Model selection: Use env var or default to Haiku 4.5 (faster, 50k ITPM limit)
+  // Set CLAUDE_MODEL=claude-sonnet-4-5-20250929 for more complex reasoning
+  val model = sys.env.getOrElse("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+  println(s"Using model: $model")
+  println("Prompt caching: enabled (system prompt & tools will be cached)")
+  
   val result = ClaudeProvider.resourceFromEnv[IO].use {
     provider =>
       // Configure tools
@@ -218,7 +228,8 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
         new ChatNode(
           provider,
           toolRegistry,
-          delayBetweenCalls = 2.seconds
+          model = model, // Use selected model
+          delayBetweenCalls = 500.millis // Reduced delay - caching helps with rate limits
         )
       val toolNode = new ToolNode
 
