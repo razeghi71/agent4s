@@ -27,7 +27,7 @@ class OpenAIResponsesProvider[F[_]: Async](
     config: OpenAIConfig
 ) extends LLMProvider[F]:
 
-  private val providerName = Some("openai-responses")
+  val name: String = "openai-responses"
   
   type Response = ChatCompletionResponse
 
@@ -53,21 +53,21 @@ class OpenAIResponsesProvider[F[_]: Async](
               Async[F].raiseError(RateLimitError(
                 s"OpenAI Responses API rate limit exceeded: $body",
                 retryAfter,
-                providerName
+                Some(name)
               ))
             }
           case 401 | 403 =>
             response.as[String].flatMap { body =>
               Async[F].raiseError(AuthenticationError(
                 s"OpenAI Responses API authentication failed: $body",
-                providerName
+                Some(name)
               ))
             }
           case 400 =>
             response.as[String].flatMap { body =>
               Async[F].raiseError(InvalidRequestError(
                 s"OpenAI Responses API invalid request: $body",
-                providerName
+                Some(name)
               ))
             }
           case code if code >= 500 =>
@@ -75,7 +75,7 @@ class OpenAIResponsesProvider[F[_]: Async](
               Async[F].raiseError(ProviderUnavailableError(
                 s"OpenAI Responses API server error: $body",
                 Some(code),
-                providerName
+                Some(name)
               ))
             }
           case code =>

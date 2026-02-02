@@ -34,7 +34,7 @@ class ClaudeProvider[F[_]: Async](
     config: ClaudeConfig
 ) extends LLMProvider[F]:
 
-  private val providerName = Some("claude")
+  val name: String = "claude"
   
   type Response = ChatCompletionResponse
 
@@ -60,21 +60,21 @@ class ClaudeProvider[F[_]: Async](
               Async[F].raiseError(RateLimitError(
                 s"Claude API rate limit exceeded: $body",
                 retryAfter,
-                providerName
+                Some(name)
               ))
             }
           case 401 | 403 =>
             response.as[String].flatMap { body =>
               Async[F].raiseError(AuthenticationError(
                 s"Claude API authentication failed: $body",
-                providerName
+                Some(name)
               ))
             }
           case 400 =>
             response.as[String].flatMap { body =>
               Async[F].raiseError(InvalidRequestError(
                 s"Claude API invalid request: $body",
-                providerName
+                Some(name)
               ))
             }
           case code if code >= 500 =>
@@ -82,7 +82,7 @@ class ClaudeProvider[F[_]: Async](
               Async[F].raiseError(ProviderUnavailableError(
                 s"Claude API server error: $body",
                 Some(code),
-                providerName
+                Some(name)
               ))
             }
           case code =>

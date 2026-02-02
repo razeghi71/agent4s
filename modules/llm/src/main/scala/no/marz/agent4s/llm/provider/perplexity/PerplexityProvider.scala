@@ -20,7 +20,7 @@ class PerplexityProvider[F[_]: Async](
     config: PerplexityConfig
 ) extends LLMProvider[F]:
 
-  private val providerName = Some("perplexity")
+  val name: String = "perplexity"
   
   type Response = ChatCompletionResponse & HasCitations
 
@@ -56,21 +56,21 @@ class PerplexityProvider[F[_]: Async](
               Async[F].raiseError(RateLimitError(
                 s"Perplexity API rate limit exceeded: $body",
                 retryAfter,
-                providerName
+                Some(name)
               ))
             }
           case 401 | 403 =>
             response.as[String].flatMap { body =>
               Async[F].raiseError(AuthenticationError(
                 s"Perplexity API authentication failed: $body",
-                providerName
+                Some(name)
               ))
             }
           case 400 =>
             response.as[String].flatMap { body =>
               Async[F].raiseError(InvalidRequestError(
                 s"Perplexity API invalid request: $body",
-                providerName
+                Some(name)
               ))
             }
           case code if code >= 500 =>
@@ -78,7 +78,7 @@ class PerplexityProvider[F[_]: Async](
               Async[F].raiseError(ProviderUnavailableError(
                 s"Perplexity API server error: $body",
                 Some(code),
-                providerName
+                Some(name)
               ))
             }
           case code =>
