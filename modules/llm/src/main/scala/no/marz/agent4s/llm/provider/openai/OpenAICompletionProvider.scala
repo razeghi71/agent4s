@@ -25,10 +25,11 @@ class OpenAICompletionProvider[F[_]: Async](
     config: OpenAIConfig
 ) extends LLMProvider[F]:
 
+  private val providerName = Some("openai")
+  
   type Response = ChatCompletionResponse
 
-  def chatCompletion(request: ChatCompletionRequest)
-      : F[ChatCompletionResponse] =
+  def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
     for
       // 1. Convert domain request to OpenAI format
       openAIRequest <- OpenAICompatibleUtils.toOpenAIRequest(request)
@@ -36,10 +37,52 @@ class OpenAICompletionProvider[F[_]: Async](
       // 2. Build HTTP request
       httpRequest = buildHttpRequest(openAIRequest)
 
-      // 3. Execute HTTP call and decode response
-      openAIResponse <- client.expect[OpenAIChatResponse](httpRequest)(using
-        jsonOf[F, OpenAIChatResponse]
-      )
+      // 3. Execute HTTP call with proper error handling
+      openAIResponse <- client.run(httpRequest).use { response =>
+        given EntityDecoder[F, OpenAIChatResponse] = jsonOf[F, OpenAIChatResponse]
+        response.status.code match
+          case code if response.status.isSuccess =>
+            response.as[OpenAIChatResponse]
+          case 429 =>
+            val retryAfter = response.headers
+              .get(CIString("retry-after"))
+              .flatMap(_.head.value.toIntOption)
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(RateLimitError(
+                s"OpenAI API rate limit exceeded: $body",
+                retryAfter,
+                providerName
+              ))
+            }
+          case 401 | 403 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(AuthenticationError(
+                s"OpenAI API authentication failed: $body",
+                providerName
+              ))
+            }
+          case 400 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(InvalidRequestError(
+                s"OpenAI API invalid request: $body",
+                providerName
+              ))
+            }
+          case code if code >= 500 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(ProviderUnavailableError(
+                s"OpenAI API server error: $body",
+                Some(code),
+                providerName
+              ))
+            }
+          case code =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(new RuntimeException(
+                s"OpenAI API error ($code): $body"
+              ))
+            }
+      }
 
       // 4. Convert OpenAI response back to domain format
       response <- OpenAICompatibleUtils.fromOpenAIResponse(openAIResponse)

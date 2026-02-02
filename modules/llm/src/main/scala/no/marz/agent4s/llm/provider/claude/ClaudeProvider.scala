@@ -15,26 +15,6 @@ import no.marz.agent4s.llm.LLMProvider
 import no.marz.agent4s.llm.model.{Message as DomainMessage, *}
 import no.marz.agent4s.llm.provider.claude.ClaudeModels.given
 
-/** Rate limit error with retry information.
-  * 
-  * Thrown when Claude API returns 429. Contains optional retry-after hint
-  * from the API response headers.
-  * 
-  * Users can catch this and implement their own retry logic:
-  * {{{
-  * provider.chatCompletion(request).handleErrorWith {
-  *   case RateLimitException(msg, Some(seconds)) =>
-  *     IO.sleep(seconds.seconds) >> provider.chatCompletion(request)
-  *   case RateLimitException(msg, None) =>
-  *     IO.sleep(1.second) >> provider.chatCompletion(request)
-  * }
-  * }}}
-  */
-case class RateLimitException(
-    message: String,
-    retryAfterSeconds: Option[Int]
-) extends RuntimeException(message)
-
 /** Claude Provider using the Anthropic Messages API.
   *
   * This provider supports Claude models (claude-sonnet-4-5, claude-opus-4, etc.)
@@ -47,13 +27,15 @@ case class RateLimitException(
   * - Tool results are content blocks in user messages, not separate messages
   * - `max_tokens` is required
   * - Prompt caching support for reduced costs and rate limits
-  * - Throws RateLimitException on 429 with retry-after hint (no automatic retry)
+  * - Throws domain errors (RateLimitError, etc.) for error handling
   */
 class ClaudeProvider[F[_]: Async](
     client: Client[F],
     config: ClaudeConfig
 ) extends LLMProvider[F]:
 
+  private val providerName = Some("claude")
+  
   type Response = ChatCompletionResponse
 
   def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
@@ -67,25 +49,48 @@ class ClaudeProvider[F[_]: Async](
       // 3. Execute HTTP call with error handling
       claudeResponse <- client.run(httpRequest).use { response =>
         given EntityDecoder[F, ClaudeResponse] = jsonOf[F, ClaudeResponse]
-        if response.status.isSuccess then
-          response.as[ClaudeResponse]
-        else if response.status.code == 429 then
-          // Rate limit - extract retry-after header and throw exception
-          val retryAfter = response.headers
-            .get(CIString("retry-after"))
-            .flatMap(_.head.value.toIntOption)
-          response.as[String].flatMap { body =>
-            Async[F].raiseError(RateLimitException(
-              s"Claude API rate limit exceeded: $body",
-              retryAfter
-            ))
-          }
-        else
-          response.as[String].flatMap { body =>
-            Async[F].raiseError(new RuntimeException(
-              s"Claude API error (${response.status}): $body"
-            ))
-          }
+        response.status.code match
+          case code if response.status.isSuccess =>
+            response.as[ClaudeResponse]
+          case 429 =>
+            val retryAfter = response.headers
+              .get(CIString("retry-after"))
+              .flatMap(_.head.value.toIntOption)
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(RateLimitError(
+                s"Claude API rate limit exceeded: $body",
+                retryAfter,
+                providerName
+              ))
+            }
+          case 401 | 403 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(AuthenticationError(
+                s"Claude API authentication failed: $body",
+                providerName
+              ))
+            }
+          case 400 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(InvalidRequestError(
+                s"Claude API invalid request: $body",
+                providerName
+              ))
+            }
+          case code if code >= 500 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(ProviderUnavailableError(
+                s"Claude API server error: $body",
+                Some(code),
+                providerName
+              ))
+            }
+          case code =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(new RuntimeException(
+                s"Claude API error ($code): $body"
+              ))
+            }
       }
 
       // 4. Convert Claude response to domain format

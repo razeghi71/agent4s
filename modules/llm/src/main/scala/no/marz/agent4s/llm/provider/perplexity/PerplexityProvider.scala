@@ -3,9 +3,11 @@ package no.marz.agent4s.llm.provider.perplexity
 import cats.effect.kernel.Async
 import cats.effect.Resource
 import cats.syntax.all.*
+import org.http4s.*
 import org.http4s.client.Client
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.circe.*
+import org.typelevel.ci.CIString
 import io.circe.syntax.*
 import no.marz.agent4s.llm.LLMProvider
 import no.marz.agent4s.llm.model.{Message as DomainMessage, *}
@@ -18,6 +20,8 @@ class PerplexityProvider[F[_]: Async](
     config: PerplexityConfig
 ) extends LLMProvider[F]:
 
+  private val providerName = Some("perplexity")
+  
   type Response = ChatCompletionResponse & HasCitations
 
   /** 
@@ -38,10 +42,52 @@ class PerplexityProvider[F[_]: Async](
         config.apiKey
       )
 
-      // 3. Execute HTTP call and decode Perplexity response
-      perplexityResponse <- client.expect[PerplexityChatResponse](httpRequest)(
-        using jsonOf[F, PerplexityChatResponse]
-      )
+      // 3. Execute HTTP call with proper error handling
+      perplexityResponse <- client.run(httpRequest).use { response =>
+        given EntityDecoder[F, PerplexityChatResponse] = jsonOf[F, PerplexityChatResponse]
+        response.status.code match
+          case code if response.status.isSuccess =>
+            response.as[PerplexityChatResponse]
+          case 429 =>
+            val retryAfter = response.headers
+              .get(CIString("retry-after"))
+              .flatMap(_.head.value.toIntOption)
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(RateLimitError(
+                s"Perplexity API rate limit exceeded: $body",
+                retryAfter,
+                providerName
+              ))
+            }
+          case 401 | 403 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(AuthenticationError(
+                s"Perplexity API authentication failed: $body",
+                providerName
+              ))
+            }
+          case 400 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(InvalidRequestError(
+                s"Perplexity API invalid request: $body",
+                providerName
+              ))
+            }
+          case code if code >= 500 =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(ProviderUnavailableError(
+                s"Perplexity API server error: $body",
+                Some(code),
+                providerName
+              ))
+            }
+          case code =>
+            response.as[String].flatMap { body =>
+              Async[F].raiseError(new RuntimeException(
+                s"Perplexity API error ($code): $body"
+              ))
+            }
+      }
 
       // 4. Convert to domain format with citations
       response <- fromPerplexityResponse(perplexityResponse)
