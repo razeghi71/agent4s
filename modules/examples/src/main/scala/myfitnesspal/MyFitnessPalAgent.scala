@@ -3,7 +3,6 @@ package myfitnesspal
 import cats.effect.{IO, Resource}
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all.*
-
 import scala.concurrent.duration.*
 import no.marz.agent4s.graph.*
 import no.marz.agent4s.llm.model.{
@@ -18,7 +17,7 @@ import myfitnesspal.tools.{
 }
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
-import no.marz.agent4s.llm.provider.claude.{ClaudeProvider, ClaudeConfig}
+import no.marz.agent4s.llm.provider.deepseek.{DeepSeekProvider, DeepSeekConfig}
 
 /** Nodes for MyFitnessPal food logging graph */
 
@@ -113,23 +112,12 @@ class LaunchAppNode(using
 class ChatNode(
     llmProvider: LLMProvider[IO],
     toolRegistry: ToolRegistry[IO],
-    model: String = "claude-haiku-4-5-20251001", // Haiku 4.5: faster, higher rate limits (50k ITPM)
-    delayBetweenCalls: FiniteDuration = 500.millis // Reduced delay since caching helps with rate limits
+    model: String = "deepseek-chat"
 ) extends GraphNode[IO, MyFitnessPalAgentState]:
 
   override def execute(state: MyFitnessPalAgentState)
       : IO[MyFitnessPalAgentState] =
-    // Add delay before API call to respect rate limits (except for first call)
-    val callWithDelay = if state.messages.nonEmpty then
-      IO.println(
-        s"⏱️  Waiting ${delayBetweenCalls.toSeconds}s to respect rate limits..."
-      ) >>
-        IO.sleep(delayBetweenCalls) >>
-        makeApiCall(state)
-    else
-      makeApiCall(state)
-
-    callWithDelay
+    makeApiCall(state)
 
   private def makeApiCall(state: MyFitnessPalAgentState)
       : IO[MyFitnessPalAgentState] =
@@ -186,13 +174,11 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
 
 /** Main application */
 @main def myFitnessPalAgent(): Unit =
-  // Model selection: Use env var or default to Haiku 4.5 (faster, 50k ITPM limit)
-  // Set CLAUDE_MODEL=claude-sonnet-4-5-20250929 for more complex reasoning
-  val model = sys.env.getOrElse("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+  // Model selection: deepseek-chat (V3/V3.2) or deepseek-reasoner (thinking mode)
+  val model = sys.env.getOrElse("DEEPSEEK_MODEL", "deepseek-chat")
   println(s"Using model: $model")
-  println("Prompt caching: enabled (system prompt & tools will be cached)")
-  
-  val result = ClaudeProvider.resourceFromEnv[IO].use {
+
+  val result = DeepSeekProvider.resourceFromEnv[IO].use {
     provider =>
       // Configure tools
       given tapTool: TapTool[IO] = new TapTool[IO]
@@ -228,8 +214,7 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
         new ChatNode(
           provider,
           toolRegistry,
-          model = model, // Use selected model
-          delayBetweenCalls = 500.millis // Reduced delay - caching helps with rate limits
+          model = model
         )
       val toolNode = new ToolNode
 

@@ -2,12 +2,13 @@ package myfitnesspal
 
 /** System prompt for MyFitnessPal food logging agent
   *
-  * This agent automates food logging through the MyFitnessPal Android app
-  * with intelligent search, verification, and error handling.
+  * This agent automates food logging through the MyFitnessPal Android app with
+  * intelligent search, verification, and error handling.
   */
 object SystemPrompt:
-  
-  val prompt: String = """You are a MyFitnessPal food logging assistant that helps users log their food intake through the Android app.
+
+  val prompt: String =
+    """You are a MyFitnessPal food logging assistant that helps users log their food intake through the Android app.
 
 ## CRITICAL RULE: User Interaction
 
@@ -47,7 +48,6 @@ Before interacting with MyFitnessPal:
   - Preserve brand names if specified
 **Use get_user_input tool to present corrected list** to the user for confirmation
 **Use get_user_input tool to ask for meal type** if not specified (Breakfast, Lunch, Dinner, Snacks)
-**Use get_user_input tool to confirm date** - assume today unless user specifies otherwise
 
 Example corrected list:
 ```

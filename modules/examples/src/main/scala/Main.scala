@@ -18,6 +18,7 @@ import no.marz.agent4s.llm.provider.openai.{
   OpenAICompletionProvider, OpenAIResponsesProvider
 }
 import no.marz.agent4s.llm.provider.perplexity.PerplexityProvider
+import no.marz.agent4s.llm.provider.deepseek.DeepSeekProvider
 import no.marz.agent4s.tools.{
   WebSearchTool, WebSearchInput, WebSearchOutput, SearchSource
 }
@@ -45,7 +46,7 @@ class ChatNode(llmProvider: LLMProvider[IO], toolRegistry: ToolRegistry[IO])
     extends GraphNode[IO, AgentState]:
   override def execute(state: AgentState): IO[AgentState] =
     val request = ChatCompletionRequest(
-      model = "gpt-5.2",
+      model = "deepseek-chat",
       messages = state.messages.reverse, // Reverse to chronological order
       tools = toolRegistry.getSchemas
     )
@@ -97,11 +98,9 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
 
 @main def hello(): Unit =
   val result = (
-    OpenAIResponsesProvider.resourceFromEnv[
-      IO
-    ], // For GPT-4o (Chat Completions API)
+    DeepSeekProvider.resourceFromEnv[IO],
     PerplexityProvider.resourceFromEnv[IO]
-  ).tupled.use { case (openAIProvider, perplexityProvider) =>
+  ).tupled.use { case (deepSeekProvider, perplexityProvider) =>
     // Setup tool registry with both weather and web search tools
     // WebSearchTool accepts any provider whose Response type includes HasCitations
     val webSearchTool = WebSearchTool(perplexityProvider, "sonar")
@@ -111,8 +110,8 @@ object GetWeatherTool extends Tool[IO, GetWeatherInput, GetWeatherOutput]:
         .register(GetWeatherTool)
         .register(webSearchTool)
 
-    // Create nodes - using OpenAI for main reasoning
-    val chatNode = new ChatNode(openAIProvider, toolRegistry)
+    // Create nodes - using DeepSeek for main reasoning
+    val chatNode = new ChatNode(deepSeekProvider, toolRegistry)
     val toolNode = new ToolNode
 
     // Build graph
