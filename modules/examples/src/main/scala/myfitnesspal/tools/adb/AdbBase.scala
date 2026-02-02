@@ -1,7 +1,7 @@
 package myfitnesspal.tools.adb
 
 import cats.effect.kernel.Async
-import myfitnesspal.model.Device
+import myfitnesspal.model.{Device, DeviceStatus}
 import scala.sys.process.*
 
 /** Base utilities for ADB operations */
@@ -40,7 +40,7 @@ private[tools] object AdbBase:
           val model = parts
             .find(_.startsWith("model:"))
             .map(_.stripPrefix("model:"))
-          Some(Device(id, status, model))
+          Some(Device(id, DeviceStatus.fromString(status), model))
         else None
       }
       .toList

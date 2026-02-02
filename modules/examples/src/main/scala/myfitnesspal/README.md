@@ -1,6 +1,30 @@
 # MyFitnessPal Android Food Logger
 
-An AI agent that automates food logging in the MyFitnessPal Android app using LLM reasoning and Android automation tools.
+An AI agent that automates food logging in the MyFitnessPal Android app. It uses an LLM (DeepSeek) for reasoning, ADB for Android automation, and a graph-based workflow for state management.
+
+## Prerequisites
+
+- **ADB** installed and on your PATH (`which adb`)
+- **Android emulator** with an AVD named `Pixel_6_API_36` (or change the name in `MyFitnessPalAgent.scala`)
+- **MyFitnessPal** installed on the emulator with a **logged-in account** -- the agent does not handle login/signup
+- **`DEEPSEEK_API_KEY`** environment variable set
+
+The agent will launch the emulator automatically if it's not already running. It expects the emulator binary at `/opt/homebrew/share/android-commandlinetools/emulator/emulator` (Homebrew on Apple Silicon). Adjust `EmulatorManagerTool` if your path differs.
+
+## Running
+
+```bash
+# Optional: choose model (defaults to deepseek-chat)
+export DEEPSEEK_MODEL=deepseek-chat
+
+sbt "examples/runMain myfitnesspal.myFitnessPalAgent"
+```
+
+You'll be prompted to enter foods, e.g.:
+
+```
+> 113g fried minced beef, 135g white rice cooked, 50g greek yogurt
+```
 
 ## Architecture
 
@@ -8,187 +32,115 @@ An AI agent that automates food logging in the MyFitnessPal Android app using LL
 
 ```
 StartNode
-    ↓
-EnsureEmulatorNode (checks/launches Android emulator)
-    ↓
-LaunchAppNode (kills then launches MyFitnessPal for clean slate)
-    ↓
-ChatNode (LLM reasoning with tools) ←──┐
-    ↓                                   │
-    ├─ hasToolCalls? → ToolNode ───────┘
-    │
-    └─ otherwise → Terminal (done)
+    |
+EnsureEmulatorNode  -- launches emulator if not running
+    |
+LaunchAppNode       -- kills then launches MyFitnessPal
+    |
+ChatNode  <---------+
+  (LLM reasoning)   |
+    |                |
+    +-- tool calls? -+-> ToolNode (execute tools, loop back)
+    |
+    +-- no tools ------> Terminal (done)
 ```
 
-**Note**: User input is now handled via the `get_user_input` tool that the LLM can call directly, giving it full control over when to ask the user questions.
+User interaction is handled via the `get_user_input` tool that the LLM calls directly, giving it full control over when to ask questions.
 
-### State Management
+### State
 
 `MyFitnessPalAgentState` tracks:
-- **Emulator status**: running, deviceId, name
-- **App status**: myFitnessPalOpen, onFoodSearchScreen
-- **Food logging context**: currentMeal, searchQuery, searchResults, selectedFood
-- **Conversation history**: messages (newest first)
+- Emulator status (running, deviceId, name)
+- App status (myFitnessPalOpen)
+- Conversation history (messages, newest-first)
 
-### Tools Available to LLM
+All food logging context (meal type, search results, selected foods) is managed by the LLM through its conversation history rather than explicit state fields.
 
-**Android Automation (`adb` package):**
-- `tap_screen` - Tap at coordinates
-- `type_text` - Type into focused field
-- `swipe_screen` - Scroll/swipe gestures
-- `press_key` - Press Android keys (BACK=4, ENTER=66)
-- `launch_app` - Launch app by package name
-- `kill_app` - Force stop app (for clean state)
-- `get_ui_hierarchy` - Get current screen XML
-- `execute_shell_command` - Arbitrary shell commands
+### Tools
 
-**User Interaction:**
-- `get_user_input` - Ask user a question and get their response
+**Android automation** (`tools/adb/`):
 
-**UI Parsing:**
-- `ui_parser` - Parse UI XML into structured elements
+| Tool | Name | Description |
+|------|------|-------------|
+| `TapTool` | `tap_screen` | Tap at screen coordinates |
+| `TypeTextTool` | `type_text` | Type into focused input field |
+| `SwipeTool` | `swipe_screen` | Swipe/scroll gestures |
+| `PressKeyTool` | `press_key` | Press Android keys (BACK=4, ENTER=66, HOME=3) |
+| `LaunchAppTool` | `launch_app` | Launch app by package name |
+| `KillAppTool` | `kill_app` | Force stop app |
+| `GetUITool` | `get_ui` | Get compact UI hierarchy of current screen |
+| `ExecuteShellTool` | `execute_shell_command` | Run arbitrary shell commands |
 
-**Emulator Management:**
-- `emulator_manager` - Check/launch emulator (used in graph nodes, not exposed to LLM)
+**User interaction** (`tools/`):
+
+| Tool | Name | Description |
+|------|------|-------------|
+| `GetUserInputTool` | `get_user_input` | Ask the user a question |
+
+**Infrastructure** (used by graph nodes, not exposed to LLM):
+
+| Tool | Name | Description |
+|------|------|-------------|
+| `EmulatorManagerTool` | `emulator_manager` | Check/launch emulator |
+
+`GetUITool` returns a compact representation of actionable elements (buttons, text, inputs) with their screen coordinates, reducing token usage compared to raw XML. Format: `[id] label (class) [actions] @ [bounds]`.
+
+### Models
+
+- `Device` -- represents an ADB-connected device with a `DeviceStatus` enum (`Online`, `Offline`, `Unauthorized`, `Unknown`)
+- `UIElement` -- parsed UI tree node with bounds, text, resource IDs, and child elements
+- `Bounds` -- screen coordinate rectangle
+
+### Shared Utilities
+
+`AdbBase` (package-private) provides `executeShell()` and `listDevices()` reused by all ADB tools.
 
 ## System Prompt
 
-The LLM is given a comprehensive prompt (`SystemPrompt.scala`) that includes:
+The LLM receives detailed instructions (`SystemPrompt.scala`) covering:
 
-### 1. Pre-Processing
-- Parse user's food list
-- Correct typos and standardize names
-- Ask for meal type (Breakfast/Lunch/Dinner/Snacks)
-- Confirm date
+1. **Pre-processing** -- parse and correct food names, confirm meal type and date
+2. **Search strategy** -- try multiple terms, scroll results, prefer verified items
+3. **Product selection** -- match food type, preparation method, and ensure the product supports the user's unit (g, oz, cup, etc.)
+4. **Calorie verification** -- sanity check against known ranges per 100g (protein ~150 cal, rice ~130 cal, vegetables ~30 cal, etc.)
+5. **Ingredient breakdown fallback** -- if a food isn't found, decompose it into components and log each separately
+6. **Final summary** -- table of logged foods with total calories
 
-### 2. Search Strategy
-- Use corrected food names
-- Scroll through results (don't settle for first)
-- Try alternative search terms if needed
-- Prefer verified items (checkmark)
+## File Structure
 
-### 3. Product Selection Criteria
-- Match food type and preparation method
-- **Must support user's unit** (g, oz, cup, etc.)
-- Select different product if unit unavailable
-
-### 4. Calorie Verification
-Sanity check using ballpark ranges per 100g:
-- Protein: ~120-200 cal
-- Rice/grains: ~120-150 cal
-- Vegetables: ~20-50 cal
-- Yogurt: ~60-150 cal
-- Oils/butter: ~700-900 cal
-
-If wrong: check unit, amount, product selection
-
-### 5. Ingredient Breakdown Fallback
-If food not found:
-- Break into component ingredients
-- Log each separately
-- Example: "100g tomato with butter" → 95g tomato + 5g butter
-
-### 6. Final Summary
-Provide table with all logged foods and total calories
-
-## Tool Design Principles
-
-### Why We Split AdbTool
-
-The original `AdbTool` was problematic:
-- ❌ Sealed trait inputs - LLMs struggle with discriminated unions
-- ❌ One tool, 10+ commands - confuses the LLM
-- ❌ Unclear outputs - sealed trait results
-
-New design:
-- ✅ **Single responsibility** - Each tool does one thing
-- ✅ **Clean JSON schemas** - Simple case class inputs
-- ✅ **Clear names** - `tap_screen`, not generic "adb"
-- ✅ **Type-safe** - Structured outputs, no string parsing
-- ✅ **LLM-friendly** - Clear descriptions and parameters
-
-### Shared Base Utilities
-
-`AdbBase.scala` provides common utilities:
-- `executeShell()` - Run shell commands with device targeting
-- `listDevices()` - Parse device list
-
-These are private to the `adb` package and reused by all tools.
-
-## Example Usage
-
-```scala
-// User input
-"113g fried minced beef, 135g white rice cooked, 50g greek yogurt for lunch"
-
-// Agent workflow:
-1. Parses and corrects food names
-2. Confirms meal type (Lunch) and date (Today)
-3. Launches emulator if needed
-4. Opens MyFitnessPal app
-5. For each food:
-   - Gets UI hierarchy
-   - Finds search field and taps it
-   - Types food name
-   - Scrolls through results
-   - Selects best match (verified, correct unit)
-   - Enters amount
-   - Verifies calories
-   - Confirms
-6. Provides summary table with total calories
+```
+myfitnesspal/
+  MyFitnessPalAgent.scala       -- entry point, graph definition, nodes
+  SystemPrompt.scala            -- LLM instructions
+  model/
+    MyFitnessPalAgentState.scala -- workflow state
+    Device.scala                 -- device model + DeviceStatus enum
+    UIElement.scala              -- parsed UI element tree
+    Bounds.scala                 -- screen coordinates
+  tools/
+    GetUserInputTool.scala       -- user interaction
+    EmulatorManagerTool.scala    -- emulator lifecycle
+    adb/
+      AdbBase.scala              -- shared ADB utilities
+      AdbTools.scala             -- re-exports all ADB tools
+      TapTool.scala
+      TypeTextTool.scala
+      SwipeTool.scala
+      PressKeyTool.scala
+      LaunchAppTool.scala
+      KillAppTool.scala
+      GetUITool.scala
+      ExecuteShellTool.scala
 ```
 
-## Key Features
+## Design Decisions
 
-### Intelligent Search
-- Tries multiple search terms if needed
-- Prefers verified results
-- Scrolls through options
+**Single-purpose tools over monolithic AdbTool** -- LLMs perform better with focused tools that have clear names and simple JSON schemas rather than a single tool with discriminated union inputs.
 
-### Unit Matching
-- Ensures selected product supports user's unit
-- Selects different product if needed
+**User input as a tool** -- gives the LLM full autonomy over conversation flow instead of hardcoding interaction points in the graph.
 
-### Calorie Verification
-- Sanity checks against known nutritional ranges
-- Flags suspicious values
+**Kill before launch** -- ensures a clean app state every run, avoiding navigation from unknown screens.
 
-### Error Handling
-- Retries with alternative searches
-- Falls back to ingredient breakdown
-- Handles app crashes/freezes
+**Newest-first message list** -- efficient prepending in functional style; reversed when sending to the LLM.
 
-### Human-in-the-Loop
-- Shows corrected food list before proceeding
-- Asks for meal type if not specified
-- Provides final summary for confirmation
-
-## Running
-
-```bash
-# Ensure emulator or device is available
-adb devices
-
-# Run the agent
-sbt "examples/runMain myfitnesspal.myFitnessPalAgent"
-
-# Or specify AVD name in code:
-new EmulatorManagerTool[IO]("Pixel_6_API_36")
-```
-
-## Dependencies
-
-- **Cats Effect** - Effect system
-- **fs2** - Streaming
-- **agent4s** - Graph and LLM abstractions
-- **OpenAI API** - GPT-4 for reasoning
-- **ADB** - Android Debug Bridge (must be in PATH)
-
-## Future Enhancements
-
-- [ ] Multi-turn conversation for disambiguation
-- [ ] Photo-based food logging (OCR)
-- [ ] Meal plan suggestions
-- [ ] Nutritional insights and recommendations
-- [ ] Support for other nutrition apps (Cronometer, Lose It!)
-- [ ] Voice input integration
+**Compact UI representation** -- `GetUITool` filters to actionable/informative elements only, cutting token usage by ~86% compared to raw XML.

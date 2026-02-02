@@ -3,8 +3,7 @@ package myfitnesspal.tools.adb
 import cats.effect.kernel.Async
 import cats.syntax.all.*
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
@@ -17,13 +16,6 @@ case class PressKeyInput(
 )
 
 case class PressKeyOutput(success: Boolean, message: String)
-
-object PressKeyInput:
-  given Decoder[PressKeyInput] = deriveDecoder[PressKeyInput]
-  given Encoder[PressKeyInput] = deriveEncoder[PressKeyInput]
-
-object PressKeyOutput:
-  given Encoder[PressKeyOutput] = deriveEncoder[PressKeyOutput]
 
 /** Press a key using Android key code
   *

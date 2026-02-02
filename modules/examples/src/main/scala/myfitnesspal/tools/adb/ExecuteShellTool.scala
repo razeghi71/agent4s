@@ -3,8 +3,7 @@ package myfitnesspal.tools.adb
 import cats.effect.kernel.Async
 import cats.syntax.all.*
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
@@ -21,13 +20,6 @@ case class ExecuteShellOutput(
     output: Option[String],
     errorMessage: Option[String]
 )
-
-object ExecuteShellInput:
-  given Decoder[ExecuteShellInput] = deriveDecoder[ExecuteShellInput]
-  given Encoder[ExecuteShellInput] = deriveEncoder[ExecuteShellInput]
-
-object ExecuteShellOutput:
-  given Encoder[ExecuteShellOutput] = deriveEncoder[ExecuteShellOutput]
 
 /** Execute arbitrary shell command on Android device
   *

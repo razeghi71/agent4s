@@ -3,8 +3,7 @@ package myfitnesspal.tools.adb
 import cats.effect.kernel.Async
 import cats.syntax.all.*
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
@@ -20,13 +19,6 @@ case class TapInput(
 )
 
 case class TapOutput(success: Boolean, message: String)
-
-object TapInput:
-  given Decoder[TapInput] = deriveDecoder[TapInput]
-  given Encoder[TapInput] = deriveEncoder[TapInput]
-
-object TapOutput:
-  given Encoder[TapOutput] = deriveEncoder[TapOutput]
 
 /** Tap at specific screen coordinates
   *

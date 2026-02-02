@@ -3,8 +3,7 @@ package myfitnesspal.tools.adb
 import cats.effect.kernel.Async
 import cats.syntax.all.*
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
@@ -17,13 +16,6 @@ case class KillAppInput(
 )
 
 case class KillAppOutput(success: Boolean, message: String)
-
-object KillAppInput:
-  given Decoder[KillAppInput] = deriveDecoder[KillAppInput]
-  given Encoder[KillAppInput] = deriveEncoder[KillAppInput]
-
-object KillAppOutput:
-  given Encoder[KillAppOutput] = deriveEncoder[KillAppOutput]
 
 /** Force stop an Android app
   *

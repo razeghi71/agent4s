@@ -13,7 +13,7 @@ import no.marz.agent4s.llm.ToolRegistry.execute
 import myfitnesspal.model.MyFitnessPalAgentState
 import myfitnesspal.tools.adb.*
 import myfitnesspal.tools.{
-  EmulatorCheckInput, EmulatorManagerTool, GetUserInputTool, UIParserTool
+  EmulatorCheckInput, EmulatorManagerTool, GetUserInputTool
 }
 import com.melvinlow.json.schema.generic.auto.given
 import io.circe.generic.auto.given
@@ -104,11 +104,7 @@ class LaunchAppNode(using
           )
       yield result
 
-/** Main reasoning node - uses LLM with tools to interact with app 
- *  
- *  With prompt caching enabled, the system prompt and tools are cached
- *  reducing costs by 90% on cache hits and not counting toward rate limits!
- */
+/** Main reasoning node - uses LLM with tools to interact with app */
 class ChatNode(
     llmProvider: LLMProvider[IO],
     toolRegistry: ToolRegistry[IO],
@@ -125,7 +121,7 @@ class ChatNode(
     val messages = Message.System(SystemPrompt.prompt) :: state.messages.reverse
 
     val request = ChatCompletionRequest(
-      model = model,  // Uses the configurable model (default: Haiku 4.5)
+      model = model,  // Uses the configurable model (default: deepseek-chat)
       messages = messages,
       tools = toolRegistry.getSchemas
     )
@@ -189,7 +185,6 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
       given killAppTool: KillAppTool[IO] = new KillAppTool[IO]
       given getUITool: GetUITool[IO] = new GetUITool[IO]
       given executeShellTool: ExecuteShellTool[IO] = new ExecuteShellTool[IO]
-      given uiParserTool: UIParserTool[IO] = new UIParserTool[IO]
       given getUserInputTool: GetUserInputTool[IO] = new GetUserInputTool[IO]
       given emulatorTool: EmulatorManagerTool[IO] =
         new EmulatorManagerTool[IO]("Pixel_6_API_36")
@@ -204,7 +199,6 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
           .register(pressKeyTool)
           .register(getUITool)
           .register(executeShellTool)
-          .register(uiParserTool)
           .register(getUserInputTool)
 
       // Create nodes

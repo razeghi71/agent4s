@@ -3,8 +3,7 @@ package myfitnesspal.tools.adb
 import cats.effect.kernel.Async
 import cats.syntax.all.*
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
@@ -18,13 +17,6 @@ case class TypeTextInput(
 )
 
 case class TypeTextOutput(success: Boolean, message: String)
-
-object TypeTextInput:
-  given Decoder[TypeTextInput] = deriveDecoder[TypeTextInput]
-  given Encoder[TypeTextInput] = deriveEncoder[TypeTextInput]
-
-object TypeTextOutput:
-  given Encoder[TypeTextOutput] = deriveEncoder[TypeTextOutput]
 
 /** Type text into focused input field
   *

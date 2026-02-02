@@ -7,17 +7,12 @@ import myfitnesspal.model.Device
 import myfitnesspal.tools.adb.AdbBase
 import scala.sys.process.*
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder, Json}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 
 /** Input for EmulatorManagerTool - empty, just triggers check */
 case class EmulatorCheckInput()
-
-object EmulatorCheckInput:
-  given Encoder[EmulatorCheckInput] = Encoder.instance(_ => Json.obj())
-  given Decoder[EmulatorCheckInput] = Decoder.instance(_ => Right(EmulatorCheckInput()))
 
 /** Status of the Android emulator
   *
@@ -34,13 +29,9 @@ case class EmulatorStatus(
     emulatorName: Option[String]
 )
 
-object EmulatorStatus:
-  given Encoder[EmulatorStatus] = deriveEncoder[EmulatorStatus]
-
 /** Manages Android emulator lifecycle
   *
-  * Checks if emulator is running and launches it if needed. Uses the AdbTool
-  * internally for device detection.
+  * Checks if emulator is running and launches it if needed.
   *
   * @param avdName
   *   AVD name to launch (e.g., "Pixel_6_API_36")

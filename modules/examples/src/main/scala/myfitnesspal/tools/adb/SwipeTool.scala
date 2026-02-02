@@ -3,8 +3,7 @@ package myfitnesspal.tools.adb
 import cats.effect.kernel.Async
 import cats.syntax.all.*
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
@@ -25,13 +24,6 @@ case class SwipeInput(
 )
 
 case class SwipeOutput(success: Boolean, message: String)
-
-object SwipeInput:
-  given Decoder[SwipeInput] = deriveDecoder[SwipeInput]
-  given Encoder[SwipeInput] = deriveEncoder[SwipeInput]
-
-object SwipeOutput:
-  given Encoder[SwipeOutput] = deriveEncoder[SwipeOutput]
 
 /** Perform swipe gesture on screen
   *

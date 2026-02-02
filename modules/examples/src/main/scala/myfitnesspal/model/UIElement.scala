@@ -74,6 +74,38 @@ case class UIElement(
     s"[$id] $label ($shortClass)$actionsStr @ $boundsStr"
 
 object UIElement:
+  /** Parse an XML node into a UIElement */
+  def fromXmlNode(node: scala.xml.Node, indexPath: String): UIElement =
+    val className = (node \@ "class")
+    val text = Option(node \@ "text").filter(_.nonEmpty)
+    val contentDesc = Option(node \@ "content-desc").filter(_.nonEmpty)
+    val resourceId = Option(node \@ "resource-id").filter(_.nonEmpty)
+    val boundsStr = node \@ "bounds"
+    val bounds = Bounds.parse(boundsStr).getOrElse(Bounds(0, 0, 0, 0))
+    val clickable = (node \@ "clickable") == "true"
+    val scrollable = (node \@ "scrollable") == "true"
+    val focusable = (node \@ "focusable") == "true"
+    val enabled = (node \@ "enabled") == "true"
+
+    val childNodes = node \ "node"
+    val children = childNodes.zipWithIndex.map { case (childNode, idx) =>
+      fromXmlNode(childNode, s"$indexPath.$idx")
+    }.toList
+
+    UIElement(
+      index = indexPath,
+      className = className,
+      text = text,
+      contentDesc = contentDesc,
+      resourceId = resourceId,
+      bounds = bounds,
+      clickable = clickable,
+      scrollable = scrollable,
+      focusable = focusable,
+      enabled = enabled,
+      children = children
+    )
+
   /** Find all elements matching a predicate in tree */
   def findAll(
       root: UIElement,

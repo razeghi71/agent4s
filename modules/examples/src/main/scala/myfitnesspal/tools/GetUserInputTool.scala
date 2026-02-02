@@ -2,8 +2,7 @@ package myfitnesspal.tools
 
 import cats.effect.kernel.Async
 import no.marz.agent4s.llm.model.Tool
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.*
+import io.circe.generic.auto.given
 import com.melvinlow.json.schema.JsonSchemaEncoder
 import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
@@ -16,13 +15,6 @@ case class GetUserInputInput(
 case class GetUserInputOutput(
     userResponse: String
 )
-
-object GetUserInputInput:
-  given Decoder[GetUserInputInput] = deriveDecoder[GetUserInputInput]
-  given Encoder[GetUserInputInput] = deriveEncoder[GetUserInputInput]
-
-object GetUserInputOutput:
-  given Encoder[GetUserInputOutput] = deriveEncoder[GetUserInputOutput]
 
 /** Get input from the user
   *
