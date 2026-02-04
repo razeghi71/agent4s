@@ -9,7 +9,9 @@ import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
 
 case class LaunchAppInput(
-    @description("Package name of the app to launch (e.g., com.myfitnesspal.android)")
+    @description(
+      "Package name of the app to launch (e.g., com.myfitnesspal.android)"
+    )
     packageName: String,
     @description("Optional device ID, if not provided uses default device")
     deviceId: Option[String] = None
@@ -21,7 +23,8 @@ case class LaunchAppOutput(success: Boolean, message: String)
   *
   * Uses monkey command which bypasses permission issues.
   */
-class LaunchAppTool[F[_]: Async] extends Tool[F, LaunchAppInput, LaunchAppOutput]:
+class LaunchAppTool[F[_]: Async]
+    extends Tool[F, LaunchAppInput, LaunchAppOutput]:
 
   def name: String = "launch_app"
 
@@ -35,10 +38,16 @@ class LaunchAppTool[F[_]: Async] extends Tool[F, LaunchAppInput, LaunchAppOutput
         input.deviceId
       )
       .map { output =>
-        LaunchAppOutput(success = true, message = s"Launched ${input.packageName}")
+        LaunchAppOutput(
+          success = true,
+          message = s"Launched ${input.packageName}"
+        )
       }
       .handleErrorWith { error =>
         Async[F].pure(
-          LaunchAppOutput(success = false, message = s"Launch failed: ${error.getMessage}")
+          LaunchAppOutput(
+            success = false,
+            message = s"Launch failed: ${error.getMessage}"
+          )
         )
       }

@@ -26,7 +26,9 @@ case class DeepSeekMessage(
     role: String,
     content: Option[String] = None,
     reasoning_content: Option[String] = None,
-    tool_calls: Option[Seq[no.marz.agent4s.llm.provider.openai.OpenAIToolCall]] = None,
+    tool_calls: Option[
+      Seq[no.marz.agent4s.llm.provider.openai.OpenAIToolCall]
+    ] = None,
     tool_call_id: Option[String] = None,
     name: Option[String] = None
 )
@@ -48,8 +50,10 @@ case class DeepSeekCompletionTokensDetails(
 object DeepSeekModels:
   import no.marz.agent4s.llm.provider.openai.OpenAIModels.given
 
-  given Encoder[DeepSeekCompletionTokensDetails] = deriveEncoder[DeepSeekCompletionTokensDetails]
-  given Decoder[DeepSeekCompletionTokensDetails] = deriveDecoder[DeepSeekCompletionTokensDetails]
+  given Encoder[DeepSeekCompletionTokensDetails] =
+    deriveEncoder[DeepSeekCompletionTokensDetails]
+  given Decoder[DeepSeekCompletionTokensDetails] =
+    deriveDecoder[DeepSeekCompletionTokensDetails]
 
   given Encoder[DeepSeekUsage] = deriveEncoder[DeepSeekUsage]
   given Decoder[DeepSeekUsage] = deriveDecoder[DeepSeekUsage]

@@ -20,11 +20,11 @@ case class PressKeyOutput(success: Boolean, message: String)
 /** Press a key using Android key code
   *
   * Common key codes:
-  * - 4: BACK
-  * - 3: HOME
-  * - 66: ENTER
-  * - 67: DEL (backspace)
-  * - 82: MENU
+  *   - 4: BACK
+  *   - 3: HOME
+  *   - 66: ENTER
+  *   - 67: DEL (backspace)
+  *   - 82: MENU
   */
 class PressKeyTool[F[_]: Async] extends Tool[F, PressKeyInput, PressKeyOutput]:
 
@@ -37,10 +37,16 @@ class PressKeyTool[F[_]: Async] extends Tool[F, PressKeyInput, PressKeyOutput]:
     AdbBase
       .executeShell(s"input keyevent ${input.keyCode}", input.deviceId)
       .map { _ =>
-        PressKeyOutput(success = true, message = s"Pressed key code ${input.keyCode}")
+        PressKeyOutput(
+          success = true,
+          message = s"Pressed key code ${input.keyCode}"
+        )
       }
       .handleErrorWith { error =>
         Async[F].pure(
-          PressKeyOutput(success = false, message = s"Key press failed: ${error.getMessage}")
+          PressKeyOutput(
+            success = false,
+            message = s"Key press failed: ${error.getMessage}"
+          )
         )
       }

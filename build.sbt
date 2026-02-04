@@ -44,10 +44,10 @@ lazy val llm = (project in file("modules/llm"))
     name := "agent4s-llm",
     version := "0.1.0-SNAPSHOT",
     scalaVersion := scala3Version,
-    libraryDependencies ++= commonDependencies ++ 
-                            circeDependencies ++ 
-                            http4sDependencies ++ 
-                            testDependencies
+    libraryDependencies ++= commonDependencies ++
+      circeDependencies ++
+      http4sDependencies ++
+      testDependencies
   )
 
 // Module 2: Graph - Agent orchestration with graph execution
@@ -56,9 +56,9 @@ lazy val graph = (project in file("modules/graph"))
     name := "agent4s-graph",
     version := "0.1.0-SNAPSHOT",
     scalaVersion := scala3Version,
-    libraryDependencies ++= commonDependencies ++ 
-                            Seq("co.fs2" %% "fs2-core" % fs2Version) ++
-                            testDependencies
+    libraryDependencies ++= commonDependencies ++
+      Seq("co.fs2" %% "fs2-core" % fs2Version) ++
+      testDependencies
   )
 
 // Module 3: Common Tools - Optional pre-built tools (depends on llm)

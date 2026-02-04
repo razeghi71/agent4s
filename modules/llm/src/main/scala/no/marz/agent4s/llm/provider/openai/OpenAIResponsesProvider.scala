@@ -16,11 +16,12 @@ import no.marz.agent4s.llm.model.{Message as DomainMessage, *}
 import no.marz.agent4s.llm.provider.openai.ResponsesModels.given
 
 /** OpenAI Responses Provider using the Responses API.
-  * 
-  * This provider supports GPT-5, GPT-5.2, o3, o4-mini and other models
-  * that require the new Responses API (POST /v1/responses).
-  * 
-  * For older models like GPT-4o, GPT-4, GPT-3.5-turbo, use OpenAICompletionProvider.
+  *
+  * This provider supports GPT-5, GPT-5.2, o3, o4-mini and other models that
+  * require the new Responses API (POST /v1/responses).
+  *
+  * For older models like GPT-4o, GPT-4, GPT-3.5-turbo, use
+  * OpenAICompletionProvider.
   */
 class OpenAIResponsesProvider[F[_]: Async](
     client: Client[F],
@@ -28,10 +29,11 @@ class OpenAIResponsesProvider[F[_]: Async](
 ) extends LLMProvider[F]:
 
   val name: String = "openai-responses"
-  
+
   type Response = ChatCompletionResponse
 
-  def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
+  def chatCompletion(request: ChatCompletionRequest)
+      : F[ChatCompletionResponse] =
     for
       // 1. Convert domain request to Responses API format
       responsesRequest <- toResponsesRequest(request)
@@ -91,7 +93,8 @@ class OpenAIResponsesProvider[F[_]: Async](
     yield response
 
   /** Convert domain ChatCompletionRequest to Responses API format */
-  private def toResponsesRequest(req: ChatCompletionRequest): F[ResponsesRequest] =
+  private def toResponsesRequest(req: ChatCompletionRequest)
+      : F[ResponsesRequest] =
     Async[F].delay {
       // Extract system instruction from messages
       val systemInstruction = req.messages.collectFirst {
@@ -117,13 +120,17 @@ class OpenAIResponsesProvider[F[_]: Async](
             )
           }
         case DomainMessage.Tool(toolCallId, _, content) =>
-          Some(ResponsesInputItem.FunctionCallOutput(call_id = toolCallId, output = content))
+          Some(ResponsesInputItem.FunctionCallOutput(
+            call_id = toolCallId,
+            output = content
+          ))
       }
 
       // Determine input format
       val input: ResponsesInput = inputItems.toList match
         case Nil => ResponsesInput.Text("")
-        case List(ResponsesInputItem.Message(_, content)) if systemInstruction.isEmpty =>
+        case List(ResponsesInputItem.Message(_, content))
+            if systemInstruction.isEmpty =>
           // Simple case: single user message, use text format
           ResponsesInput.Text(content)
         case items =>
@@ -138,7 +145,8 @@ class OpenAIResponsesProvider[F[_]: Async](
             name = toolSchema.name,
             description = toolSchema.description,
             parameters = toolSchema.parameters,
-            strict = None // Don't use strict mode - it requires all fields in 'required'
+            strict =
+              None // Don't use strict mode - it requires all fields in 'required'
           )
         })
       else
@@ -157,8 +165,9 @@ class OpenAIResponsesProvider[F[_]: Async](
 
   /** Build HTTP request for Responses API */
   private def buildHttpRequest(req: ResponsesRequest): Request[F] =
-    val authHeader = Authorization(Credentials.Token(AuthScheme.Bearer, config.apiKey))
-    
+    val authHeader =
+      Authorization(Credentials.Token(AuthScheme.Bearer, config.apiKey))
+
     val orgHeaders = config.organization
       .map(org => Header.Raw(CIString("OpenAI-Organization"), org))
       .map(h => Headers(h))
@@ -167,15 +176,20 @@ class OpenAIResponsesProvider[F[_]: Async](
     Request[F](
       method = Method.POST,
       uri = Uri.unsafeFromString(s"${config.baseUrl}/responses"),
-      headers = Headers(authHeader, `Content-Type`(MediaType.application.json)) ++ orgHeaders
+      headers =
+        Headers(authHeader, `Content-Type`(MediaType.application.json)) ++
+          orgHeaders
     ).withEntity(req.asJson)
 
   /** Convert Responses API response to domain ChatCompletionResponse */
-  private def fromResponsesResponse(res: ResponsesResponse): F[ChatCompletionResponse] =
+  private def fromResponsesResponse(res: ResponsesResponse)
+      : F[ChatCompletionResponse] =
     Async[F].delay {
       // Check for errors
       res.error.foreach { err =>
-        throw new RuntimeException(s"OpenAI Responses API error: ${err.code} - ${err.message}")
+        throw new RuntimeException(
+          s"OpenAI Responses API error: ${err.code} - ${err.message}"
+        )
       }
 
       // Extract function calls and messages from output
@@ -185,7 +199,9 @@ class OpenAIResponsesProvider[F[_]: Async](
             case Right(json) =>
               ToolCall(id = callId, name = name, arguments = json)
             case Left(err) =>
-              throw new RuntimeException(s"Failed to parse function call arguments: ${err.getMessage}")
+              throw new RuntimeException(
+                s"Failed to parse function call arguments: ${err.getMessage}"
+              )
       }
 
       val textContent = res.output.collect {
@@ -196,14 +212,14 @@ class OpenAIResponsesProvider[F[_]: Async](
       }.mkString
 
       // Create the domain message
-      val message: DomainMessage = 
+      val message: DomainMessage =
         if functionCalls.nonEmpty then
           DomainMessage.Assistant(AssistantContent.ToolCalls(functionCalls))
         else
           DomainMessage.Assistant(AssistantContent.Text(textContent))
 
       // Determine finish reason
-      val finishReason = 
+      val finishReason =
         if functionCalls.nonEmpty then Some("tool_calls")
         else if res.status == "completed" then Some("stop")
         else Some(res.status)
@@ -240,5 +256,8 @@ object OpenAIResponsesProvider:
     resource(OpenAIConfig.fromEnv)
 
   /** Create a provider with a custom HTTP client */
-  def apply[F[_]: Async](client: Client[F], config: OpenAIConfig): OpenAIResponsesProvider[F] =
+  def apply[F[_]: Async](
+      client: Client[F],
+      config: OpenAIConfig
+  ): OpenAIResponsesProvider[F] =
     new OpenAIResponsesProvider[F](client, config)

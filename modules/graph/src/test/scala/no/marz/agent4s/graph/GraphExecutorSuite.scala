@@ -13,19 +13,31 @@ class GraphExecutorSuite extends FunSuite:
   // Test nodes
   object NodeA extends GraphNode[IO, TestState]:
     def execute(state: TestState): IO[TestState] =
-      IO.pure(state.copy(value = state.value + 1, visited = "A" :: state.visited))
+      IO.pure(state.copy(
+        value = state.value + 1,
+        visited = "A" :: state.visited
+      ))
 
   object NodeB extends GraphNode[IO, TestState]:
     def execute(state: TestState): IO[TestState] =
-      IO.pure(state.copy(value = state.value + 10, visited = "B" :: state.visited))
+      IO.pure(state.copy(
+        value = state.value + 10,
+        visited = "B" :: state.visited
+      ))
 
   object NodeC extends GraphNode[IO, TestState]:
     def execute(state: TestState): IO[TestState] =
-      IO.pure(state.copy(value = state.value + 100, visited = "C" :: state.visited))
+      IO.pure(state.copy(
+        value = state.value + 100,
+        visited = "C" :: state.visited
+      ))
 
   object NodeD extends GraphNode[IO, TestState]:
     def execute(state: TestState): IO[TestState] =
-      IO.pure(state.copy(value = state.value + 1000, visited = "D" :: state.visited))
+      IO.pure(state.copy(
+        value = state.value + 1000,
+        visited = "D" :: state.visited
+      ))
 
   val executor = new GraphExecutor[IO]()
 
@@ -39,7 +51,8 @@ class GraphExecutorSuite extends FunSuite:
       .build()
 
     val initialState = TestState(0)
-    val states = executor.run(graph, initialState).compile.toList.unsafeRunSync()
+    val states =
+      executor.run(graph, initialState).compile.toList.unsafeRunSync()
 
     assertEquals(states.size, 3) // A, B, Terminal
     assertEquals(states(0).value, 1) // After A

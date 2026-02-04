@@ -7,10 +7,11 @@ sealed trait LLMError extends RuntimeException:
 
 /** Rate limit error with retry information.
   *
-  * Thrown when an LLM provider returns 429 (Too Many Requests).
-  * Contains optional retry-after hint from the API response headers.
+  * Thrown when an LLM provider returns 429 (Too Many Requests). Contains
+  * optional retry-after hint from the API response headers.
   *
-  * This is a common error across all providers (OpenAI, Anthropic, Perplexity, etc.)
+  * This is a common error across all providers (OpenAI, Anthropic, Perplexity,
+  * etc.)
   *
   * Example handling:
   * {{{
@@ -22,9 +23,12 @@ sealed trait LLMError extends RuntimeException:
   * }
   * }}}
   *
-  * @param message Error message from the provider
-  * @param retryAfterSeconds Optional hint from provider on when to retry (in seconds)
-  * @param provider Name of the provider that returned the error (e.g., "claude", "openai")
+  * @param message
+  *   Error message from the provider
+  * @param retryAfterSeconds
+  *   Optional hint from provider on when to retry (in seconds)
+  * @param provider
+  *   Name of the provider that returned the error (e.g., "claude", "openai")
   */
 case class RateLimitError(
     message: String,

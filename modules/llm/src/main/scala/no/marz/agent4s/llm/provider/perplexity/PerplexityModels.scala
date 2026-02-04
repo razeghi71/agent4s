@@ -25,7 +25,7 @@ case class PerplexityChoice(
 // Circe codecs
 object PerplexityModels:
   // OpenAI types codecs are imported above via OpenAIModels.given
-  
+
   given Encoder[PerplexityChoice] = deriveEncoder[PerplexityChoice]
   given Decoder[PerplexityChoice] = deriveDecoder[PerplexityChoice]
 

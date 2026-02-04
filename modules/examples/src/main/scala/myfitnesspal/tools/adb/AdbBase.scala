@@ -6,7 +6,7 @@ import scala.sys.process.*
 
 /** Base utilities for ADB operations */
 private[tools] object AdbBase:
-  
+
   /** Execute a shell command on device */
   def executeShell[F[_]: Async](
       cmd: String,

@@ -35,10 +35,16 @@ class TapTool[F[_]: Async] extends Tool[F, TapInput, TapOutput]:
     AdbBase
       .executeShell(s"input tap ${input.x} ${input.y}", input.deviceId)
       .map { output =>
-        TapOutput(success = true, message = s"Tapped at (${input.x}, ${input.y})")
+        TapOutput(
+          success = true,
+          message = s"Tapped at (${input.x}, ${input.y})"
+        )
       }
       .handleErrorWith { error =>
         Async[F].pure(
-          TapOutput(success = false, message = s"Tap failed: ${error.getMessage}")
+          TapOutput(
+            success = false,
+            message = s"Tap failed: ${error.getMessage}"
+          )
         )
       }

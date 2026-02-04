@@ -52,7 +52,7 @@ class EmulatorManagerTool[F[_]: Async](
     "Check emulator status and launch if needed"
 
   def execute(input: EmulatorCheckInput): F[EmulatorStatus] =
-    for {
+    for
       _ <- Async[F].delay(
         println("Checking emulator status...")
       )
@@ -64,7 +64,9 @@ class EmulatorManagerTool[F[_]: Async](
           // Emulator already running
           Async[F].delay {
             println(
-              s"Emulator already running: ${device.id}${device.model.map(m => s" ($m)").getOrElse("")}"
+              s"Emulator already running: ${device.id}${device.model.map(m =>
+                  s" ($m)"
+                ).getOrElse("")}"
             )
             EmulatorStatus(
               running = true,
@@ -86,8 +88,7 @@ class EmulatorManagerTool[F[_]: Async](
           Async[F].delay {
             println(s"Emulator not running, launching $avdName...")
           } *> launchAndWait()
-
-    } yield result
+    yield result
 
   /** List all devices using ADB */
   private def listDevices(): F[List[Device]] =
@@ -95,16 +96,18 @@ class EmulatorManagerTool[F[_]: Async](
 
   /** Launch emulator and wait for it to boot */
   private def launchAndWait(): F[EmulatorStatus] =
-    for {
+    for
       _ <- launchEmulator()
       _ <- Async[F].delay(
-        println(s"Waiting for emulator to boot (timeout: ${launchTimeout.toSeconds}s)...")
+        println(
+          s"Waiting for emulator to boot (timeout: ${launchTimeout.toSeconds}s)..."
+        )
       )
       deviceId <- waitForEmulatorBoot()
       _ <- Async[F].delay(
         println(s"✓ Emulator booted successfully: $deviceId")
       )
-    } yield EmulatorStatus(
+    yield EmulatorStatus(
       running = true,
       deviceId = Some(deviceId),
       emulatorName = Some(avdName)
@@ -120,25 +123,29 @@ class EmulatorManagerTool[F[_]: Async](
       // Set up environment variables for M1 optimization
       val androidHome = "/opt/homebrew/share/android-commandlinetools"
       val emulatorPath = s"$androidHome/emulator/emulator"
-      
+
       val env = Seq(
         "ANDROID_HOME" -> androidHome,
         "ANDROID_SDK_ROOT" -> androidHome,
         "ANDROID_EMULATOR_USE_SYSTEM_LIBS" -> "0"
       )
-      
+
       // Use the same optimized flags as user's script
       val command = Seq(
         emulatorPath,
-        "-avd", avdName,
-        "-gpu", "host",     // Full Metal/Vulkan acceleration for M1
-        "-no-metrics"       // Disable metrics
+        "-avd",
+        avdName,
+        "-gpu",
+        "host", // Full Metal/Vulkan acceleration for M1
+        "-no-metrics" // Disable metrics
       )
-      
+
       // Launch in background
       val process = Process(command, None, env*).run()
       println(s"Emulator launch command executed: ${command.mkString(" ")}")
-      println(s"Environment: ${env.map { case (k, v) => s"$k=$v" }.mkString(", ")}")
+      println(
+        s"Environment: ${env.map { case (k, v) => s"$k=$v" }.mkString(", ")}"
+      )
     }.handleErrorWith { error =>
       Async[F].raiseError(
         new RuntimeException(
@@ -151,8 +158,7 @@ class EmulatorManagerTool[F[_]: Async](
 
   /** Poll for emulator to appear in device list and become ready
     *
-    * Checks every bootCheckInterval until emulator is online or timeout
-    * reached
+    * Checks every bootCheckInterval until emulator is online or timeout reached
     */
   private def waitForEmulatorBoot(): F[String] =
     def checkBoot(
@@ -176,5 +182,6 @@ class EmulatorManagerTool[F[_]: Async](
                 checkBoot(attempts + 1, maxAttempts)
         }
 
-    val maxAttempts = (launchTimeout.toMillis / bootCheckInterval.toMillis).toInt
+    val maxAttempts =
+      (launchTimeout.toMillis / bootCheckInterval.toMillis).toInt
     checkBoot(0, maxAttempts)

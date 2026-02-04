@@ -24,7 +24,8 @@ class GeminiProvider[F[_]: Async](
 
   type Response = ChatCompletionResponse
 
-  def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
+  def chatCompletion(request: ChatCompletionRequest)
+      : F[ChatCompletionResponse] =
     for
       // 1. Convert domain request to OpenAI format
       openAIRequest <- OpenAICompatibleUtils.toOpenAIRequest(request)
@@ -38,7 +39,8 @@ class GeminiProvider[F[_]: Async](
 
       // 3. Execute HTTP call with error handling
       openAIResponse <- client.run(httpRequest).use { response =>
-        given EntityDecoder[F, OpenAIChatResponse] = jsonOf[F, OpenAIChatResponse]
+        given EntityDecoder[F, OpenAIChatResponse] =
+          jsonOf[F, OpenAIChatResponse]
         response.status.code match
           case code if response.status.isSuccess =>
             response.as[OpenAIChatResponse]

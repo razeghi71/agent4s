@@ -46,11 +46,15 @@ class SwipeTool[F[_]: Async] extends Tool[F, SwipeInput, SwipeOutput]:
       .map { _ =>
         SwipeOutput(
           success = true,
-          message = s"Swiped from (${input.x1},${input.y1}) to (${input.x2},${input.y2})"
+          message =
+            s"Swiped from (${input.x1},${input.y1}) to (${input.x2},${input.y2})"
         )
       }
       .handleErrorWith { error =>
         Async[F].pure(
-          SwipeOutput(success = false, message = s"Swipe failed: ${error.getMessage}")
+          SwipeOutput(
+            success = false,
+            message = s"Swipe failed: ${error.getMessage}"
+          )
         )
       }

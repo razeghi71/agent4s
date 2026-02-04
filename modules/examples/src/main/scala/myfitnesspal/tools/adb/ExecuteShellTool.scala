@@ -23,10 +23,11 @@ case class ExecuteShellOutput(
 
 /** Execute arbitrary shell command on Android device
   *
-  * Use this for commands not covered by specific tools.
-  * Be careful with shell syntax and escaping.
+  * Use this for commands not covered by specific tools. Be careful with shell
+  * syntax and escaping.
   */
-class ExecuteShellTool[F[_]: Async] extends Tool[F, ExecuteShellInput, ExecuteShellOutput]:
+class ExecuteShellTool[F[_]: Async]
+    extends Tool[F, ExecuteShellInput, ExecuteShellOutput]:
 
   def name: String = "execute_shell_command"
 
@@ -37,7 +38,11 @@ class ExecuteShellTool[F[_]: Async] extends Tool[F, ExecuteShellInput, ExecuteSh
     AdbBase
       .executeShell(input.command, input.deviceId)
       .map { output =>
-        ExecuteShellOutput(success = true, output = Some(output), errorMessage = None)
+        ExecuteShellOutput(
+          success = true,
+          output = Some(output),
+          errorMessage = None
+        )
       }
       .handleErrorWith { error =>
         Async[F].pure(

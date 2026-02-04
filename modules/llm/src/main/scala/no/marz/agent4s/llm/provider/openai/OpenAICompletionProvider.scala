@@ -16,9 +16,9 @@ import no.marz.agent4s.llm.provider.openai.OpenAIModels.given
 import no.marz.agent4s.llm.provider.utils.OpenAICompatibleUtils
 
 /** OpenAI Completion Provider using the Chat Completions API.
-  * 
-  * This provider supports models like GPT-4o, GPT-4, GPT-3.5-turbo.
-  * For GPT-5.2 and newer models, use OpenAIResponsesProvider instead.
+  *
+  * This provider supports models like GPT-4o, GPT-4, GPT-3.5-turbo. For GPT-5.2
+  * and newer models, use OpenAIResponsesProvider instead.
   */
 class OpenAICompletionProvider[F[_]: Async](
     client: Client[F],
@@ -26,10 +26,11 @@ class OpenAICompletionProvider[F[_]: Async](
 ) extends LLMProvider[F]:
 
   val name: String = "openai"
-  
+
   type Response = ChatCompletionResponse
 
-  def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
+  def chatCompletion(request: ChatCompletionRequest)
+      : F[ChatCompletionResponse] =
     for
       // 1. Convert domain request to OpenAI format
       openAIRequest <- OpenAICompatibleUtils.toOpenAIRequest(request)
@@ -39,7 +40,8 @@ class OpenAICompletionProvider[F[_]: Async](
 
       // 3. Execute HTTP call with proper error handling
       openAIResponse <- client.run(httpRequest).use { response =>
-        given EntityDecoder[F, OpenAIChatResponse] = jsonOf[F, OpenAIChatResponse]
+        given EntityDecoder[F, OpenAIChatResponse] =
+          jsonOf[F, OpenAIChatResponse]
         response.status.code match
           case code if response.status.isSuccess =>
             response.as[OpenAIChatResponse]

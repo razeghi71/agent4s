@@ -121,7 +121,7 @@ class ChatNode(
     val messages = Message.System(SystemPrompt.prompt) :: state.messages.reverse
 
     val request = ChatCompletionRequest(
-      model = model,  // Uses the configurable model (default: deepseek-chat)
+      model = model, // Uses the configurable model (default: deepseek-chat)
       messages = messages,
       tools = toolRegistry.getSchemas
     )

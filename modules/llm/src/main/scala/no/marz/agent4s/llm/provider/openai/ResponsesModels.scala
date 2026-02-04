@@ -9,17 +9,27 @@ import io.circe.syntax.*
 // ============================================================================
 
 /** Main request for OpenAI Responses API (POST /v1/responses)
-  * 
-  * @param model The model to use (e.g., "gpt-5.2", "o3", "o4-mini")
-  * @param input The user input - can be a string or array of input items
-  * @param instructions System instructions for the model (replaces system message)
-  * @param tools List of tools available to the model
-  * @param previousResponseId ID of a previous response for multi-turn conversations
-  * @param temperature Sampling temperature (0.0 to 2.0)
-  * @param maxOutputTokens Maximum tokens to generate
-  * @param topP Nucleus sampling parameter
-  * @param store Whether to store the response for later retrieval
-  * @param metadata Custom metadata for the response
+  *
+  * @param model
+  *   The model to use (e.g., "gpt-5.2", "o3", "o4-mini")
+  * @param input
+  *   The user input - can be a string or array of input items
+  * @param instructions
+  *   System instructions for the model (replaces system message)
+  * @param tools
+  *   List of tools available to the model
+  * @param previousResponseId
+  *   ID of a previous response for multi-turn conversations
+  * @param temperature
+  *   Sampling temperature (0.0 to 2.0)
+  * @param maxOutputTokens
+  *   Maximum tokens to generate
+  * @param topP
+  *   Nucleus sampling parameter
+  * @param store
+  *   Whether to store the response for later retrieval
+  * @param metadata
+  *   Custom metadata for the response
   */
 case class ResponsesRequest(
     model: String,
@@ -40,7 +50,7 @@ sealed trait ResponsesInput
 object ResponsesInput:
   /** Simple text input */
   case class Text(value: String) extends ResponsesInput
-  
+
   /** Array of input items for complex conversations */
   case class Items(items: Seq[ResponsesInputItem]) extends ResponsesInput
 
@@ -55,22 +65,23 @@ object ResponsesInputItem:
       content: String
   ) extends ResponsesInputItem:
     val `type` = "message"
-  
-  /** Function call from assistant (needed when providing function_call_output) */
+
+  /** Function call from assistant (needed when providing function_call_output)
+    */
   case class FunctionCall(
       call_id: String,
       name: String,
       arguments: String
   ) extends ResponsesInputItem:
     val `type` = "function_call"
-  
+
   /** Result from a function call */
   case class FunctionCallOutput(
       call_id: String,
       output: String
   ) extends ResponsesInputItem:
     val `type` = "function_call_output"
-  
+
   /** Reference to a previous item (for context) */
   case class ItemReference(
       id: String
@@ -115,7 +126,7 @@ object ResponsesOutputItem:
       content: Seq[MessageContent]
   ) extends ResponsesOutputItem:
     val `type` = "message"
-  
+
   /** Function call output - the model wants to call a tool */
   case class FunctionCall(
       id: Option[String],
@@ -124,7 +135,7 @@ object ResponsesOutputItem:
       arguments: String
   ) extends ResponsesOutputItem:
     val `type` = "function_call"
-  
+
   /** Reasoning output (for o-series models) */
   case class Reasoning(
       id: Option[String],
@@ -139,7 +150,7 @@ sealed trait MessageContent:
 object MessageContent:
   case class OutputText(text: String) extends MessageContent:
     val `type` = "output_text"
-  
+
   case class Refusal(refusal: String) extends MessageContent:
     val `type` = "refusal"
 
@@ -174,23 +185,23 @@ case class ResponsesError(
 // ============================================================================
 
 object ResponsesModels:
-  
+
   // --- Token Details ---
   given Encoder[TokenDetails] = deriveEncoder[TokenDetails]
   given Decoder[TokenDetails] = deriveDecoder[TokenDetails]
-  
+
   // --- Usage ---
   given Encoder[ResponsesUsage] = deriveEncoder[ResponsesUsage]
   given Decoder[ResponsesUsage] = deriveDecoder[ResponsesUsage]
-  
+
   // --- Error ---
   given Encoder[ResponsesError] = deriveEncoder[ResponsesError]
   given Decoder[ResponsesError] = deriveDecoder[ResponsesError]
-  
+
   // --- Reasoning Summary ---
   given Encoder[ReasoningSummary] = deriveEncoder[ReasoningSummary]
   given Decoder[ReasoningSummary] = deriveDecoder[ReasoningSummary]
-  
+
   // --- Message Content (sealed trait) ---
   given Encoder[MessageContent] = Encoder.instance {
     case MessageContent.OutputText(text) =>
@@ -198,15 +209,20 @@ object ResponsesModels:
     case MessageContent.Refusal(refusal) =>
       Json.obj("type" -> "refusal".asJson, "refusal" -> refusal.asJson)
   }
-  
+
   given Decoder[MessageContent] = Decoder.instance { cursor =>
     cursor.get[String]("type").flatMap {
-      case "output_text" => cursor.get[String]("text").map(MessageContent.OutputText.apply)
-      case "refusal" => cursor.get[String]("refusal").map(MessageContent.Refusal.apply)
-      case other => Left(DecodingFailure(s"Unknown message content type: $other", cursor.history))
+      case "output_text" =>
+        cursor.get[String]("text").map(MessageContent.OutputText.apply)
+      case "refusal" =>
+        cursor.get[String]("refusal").map(MessageContent.Refusal.apply)
+      case other => Left(DecodingFailure(
+          s"Unknown message content type: $other",
+          cursor.history
+        ))
     }
   }
-  
+
   // --- Output Items (sealed trait) ---
   given Encoder[ResponsesOutputItem] = Encoder.instance {
     case ResponsesOutputItem.Message(id, role, content) =>
@@ -231,7 +247,7 @@ object ResponsesModels:
         "summary" -> summary.asJson
       )
   }
-  
+
   given Decoder[ResponsesOutputItem] = Decoder.instance { cursor =>
     cursor.get[String]("type").flatMap {
       case "message" =>
@@ -253,10 +269,13 @@ object ResponsesModels:
           summary <- cursor.get[Seq[ReasoningSummary]]("summary")
         yield ResponsesOutputItem.Reasoning(id, summary)
       case other =>
-        Left(DecodingFailure(s"Unknown output item type: $other", cursor.history))
+        Left(DecodingFailure(
+          s"Unknown output item type: $other",
+          cursor.history
+        ))
     }
   }
-  
+
   // --- Input Items (sealed trait) ---
   given Encoder[ResponsesInputItem] = Encoder.instance {
     case ResponsesInputItem.Message(role, content) =>
@@ -284,7 +303,7 @@ object ResponsesModels:
         "id" -> id.asJson
       )
   }
-  
+
   given Decoder[ResponsesInputItem] = Decoder.instance { cursor =>
     cursor.get[String]("type").flatMap {
       case "message" =>
@@ -306,31 +325,34 @@ object ResponsesModels:
       case "item_reference" =>
         cursor.get[String]("id").map(ResponsesInputItem.ItemReference.apply)
       case other =>
-        Left(DecodingFailure(s"Unknown input item type: $other", cursor.history))
+        Left(DecodingFailure(
+          s"Unknown input item type: $other",
+          cursor.history
+        ))
     }
   }
-  
+
   // --- Responses Input (sealed trait) ---
   given Encoder[ResponsesInput] = Encoder.instance {
-    case ResponsesInput.Text(value) => value.asJson
+    case ResponsesInput.Text(value)  => value.asJson
     case ResponsesInput.Items(items) => items.asJson
   }
-  
+
   given Decoder[ResponsesInput] = Decoder.instance { cursor =>
     // Try to decode as string first, then as array
     cursor.as[String].map(ResponsesInput.Text.apply).orElse(
       cursor.as[Seq[ResponsesInputItem]].map(ResponsesInput.Items.apply)
     )
   }
-  
+
   // --- Tool ---
   given Encoder[ResponsesTool] = deriveEncoder[ResponsesTool]
   given Decoder[ResponsesTool] = deriveDecoder[ResponsesTool]
-  
+
   // --- Request ---
   given Encoder[ResponsesRequest] = deriveEncoder[ResponsesRequest]
   given Decoder[ResponsesRequest] = deriveDecoder[ResponsesRequest]
-  
+
   // --- Response ---
   given Encoder[ResponsesResponse] = deriveEncoder[ResponsesResponse]
   given Decoder[ResponsesResponse] = deriveDecoder[ResponsesResponse]

@@ -20,8 +20,8 @@ case class TypeTextOutput(success: Boolean, message: String)
 
 /** Type text into focused input field
   *
-  * Types text character by character with small delays to avoid race conditions.
-  * Make sure the target input field is focused before calling this.
+  * Types text character by character with small delays to avoid race
+  * conditions. Make sure the target input field is focused before calling this.
   */
 class TypeTextTool[F[_]: Async] extends Tool[F, TypeTextInput, TypeTextOutput]:
 
@@ -31,7 +31,7 @@ class TypeTextTool[F[_]: Async] extends Tool[F, TypeTextInput, TypeTextOutput]:
     "Type text into the currently focused input field on Android device"
 
   /** Map character to keyevent code */
-  private def charToKeyEvent(c: Char): Option[Int] = c.toLower match {
+  private def charToKeyEvent(c: Char): Option[Int] = c.toLower match
     case 'a' => Some(29)
     case 'b' => Some(30)
     case 'c' => Some(31)
@@ -69,8 +69,7 @@ class TypeTextTool[F[_]: Async] extends Tool[F, TypeTextInput, TypeTextOutput]:
     case '7' => Some(14)
     case '8' => Some(15)
     case '9' => Some(16)
-    case _ => None // Skip unsupported characters
-  }
+    case _   => None // Skip unsupported characters
 
   def execute(input: TypeTextInput): F[TypeTextOutput] =
     // Type each character individually with delays
@@ -78,13 +77,16 @@ class TypeTextTool[F[_]: Async] extends Tool[F, TypeTextInput, TypeTextOutput]:
       charToKeyEvent(char) match
         case Some(keyCode) =>
           AdbBase.executeShell(s"input keyevent $keyCode", input.deviceId) >>
-          Async[F].sleep(50.millis)
+            Async[F].sleep(50.millis)
         case None =>
           Async[F].unit
     }.map { _ =>
       TypeTextOutput(success = true, message = s"Typed: ${input.text}")
     }.handleErrorWith { error =>
       Async[F].pure(
-        TypeTextOutput(success = false, message = s"Type failed: ${error.getMessage}")
+        TypeTextOutput(
+          success = false,
+          message = s"Type failed: ${error.getMessage}"
+        )
       )
     }

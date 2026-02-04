@@ -17,8 +17,9 @@ import no.marz.agent4s.llm.provider.utils.OpenAICompatibleUtils
 
 /** DeepSeek Provider using the Chat Completions API.
   *
-  * Supports deepseek-chat (V3/V3.2 non-thinking) and deepseek-reasoner (V3.2 thinking).
-  * The API is OpenAI-compatible with additional fields for reasoning content and cache stats.
+  * Supports deepseek-chat (V3/V3.2 non-thinking) and deepseek-reasoner (V3.2
+  * thinking). The API is OpenAI-compatible with additional fields for reasoning
+  * content and cache stats.
   */
 class DeepSeekProvider[F[_]: Async](
     client: Client[F],
@@ -29,7 +30,8 @@ class DeepSeekProvider[F[_]: Async](
 
   type Response = ChatCompletionResponse
 
-  def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
+  def chatCompletion(request: ChatCompletionRequest)
+      : F[ChatCompletionResponse] =
     for
       // 1. Convert domain request to OpenAI format (DeepSeek is compatible)
       openAIRequest <- OpenAICompatibleUtils.toOpenAIRequest(request)
@@ -43,7 +45,8 @@ class DeepSeekProvider[F[_]: Async](
 
       // 3. Execute HTTP call with proper error handling
       deepSeekResponse <- client.run(httpRequest).use { response =>
-        given EntityDecoder[F, DeepSeekChatResponse] = jsonOf[F, DeepSeekChatResponse]
+        given EntityDecoder[F, DeepSeekChatResponse] =
+          jsonOf[F, DeepSeekChatResponse]
         response.status.code match
           case code if response.status.isSuccess =>
             response.as[DeepSeekChatResponse]
@@ -115,7 +118,9 @@ class DeepSeekProvider[F[_]: Async](
                       s"Failed to parse tool call arguments: ${err.getMessage}"
                     )
               }
-              DomainMessage.Assistant(AssistantContent.ToolCalls(domainToolCalls))
+              DomainMessage.Assistant(
+                AssistantContent.ToolCalls(domainToolCalls)
+              )
             case _ =>
               // For deepseek-reasoner, reasoning_content is available but we map
               // the final answer (content) as the text response. Reasoning content

@@ -23,7 +23,7 @@ case class MyFitnessPalAgentState(
     myFitnessPalOpen: Boolean = false,
     messages: List[Message] = List.empty
 ) extends GraphState:
-  
+
   /** Check if the last message contains tool calls */
   def hasToolCalls: Boolean = messages.headOption match
     case Some(Message.Assistant(AssistantContent.ToolCalls(_))) => true

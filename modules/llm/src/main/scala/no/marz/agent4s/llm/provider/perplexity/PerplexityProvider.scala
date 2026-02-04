@@ -21,13 +21,12 @@ class PerplexityProvider[F[_]: Async](
 ) extends LLMProvider[F]:
 
   val name: String = "perplexity"
-  
+
   type Response = ChatCompletionResponse & HasCitations
 
-  /** 
-   * Returns ChatCompletionResponse with HasCitations capability
-   * This uses Scala 3 intersection types to add citations without subclassing
-   */
+  /** Returns ChatCompletionResponse with HasCitations capability This uses
+    * Scala 3 intersection types to add citations without subclassing
+    */
   def chatCompletion(
       request: ChatCompletionRequest
   ): F[ChatCompletionResponse & HasCitations] =
@@ -44,7 +43,8 @@ class PerplexityProvider[F[_]: Async](
 
       // 3. Execute HTTP call with proper error handling
       perplexityResponse <- client.run(httpRequest).use { response =>
-        given EntityDecoder[F, PerplexityChatResponse] = jsonOf[F, PerplexityChatResponse]
+        given EntityDecoder[F, PerplexityChatResponse] =
+          jsonOf[F, PerplexityChatResponse]
         response.status.code match
           case code if response.status.isSuccess =>
             response.as[PerplexityChatResponse]
@@ -117,7 +117,9 @@ class PerplexityProvider[F[_]: Async](
                       s"Failed to parse tool call arguments: ${err.getMessage}"
                     )
               }
-              DomainMessage.Assistant(AssistantContent.ToolCalls(domainToolCalls))
+              DomainMessage.Assistant(
+                AssistantContent.ToolCalls(domainToolCalls)
+              )
             case None =>
               DomainMessage.Assistant(
                 AssistantContent.Text(choice.message.content.getOrElse(""))

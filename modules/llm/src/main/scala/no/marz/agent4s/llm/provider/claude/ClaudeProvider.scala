@@ -17,17 +17,17 @@ import no.marz.agent4s.llm.provider.claude.ClaudeModels.given
 
 /** Claude Provider using the Anthropic Messages API.
   *
-  * This provider supports Claude models (claude-sonnet-4-5, claude-opus-4, etc.)
-  * via the Messages API (POST /v1/messages).
+  * This provider supports Claude models (claude-sonnet-4-5, claude-opus-4,
+  * etc.) via the Messages API (POST /v1/messages).
   *
   * Key features:
-  * - System prompt is a top-level parameter, not a message
-  * - Uses `x-api-key` header instead of Bearer token
-  * - Tool definitions use `input_schema` instead of `parameters`
-  * - Tool results are content blocks in user messages, not separate messages
-  * - `max_tokens` is required
-  * - Prompt caching support for reduced costs and rate limits
-  * - Throws domain errors (RateLimitError, etc.) for error handling
+  *   - System prompt is a top-level parameter, not a message
+  *   - Uses `x-api-key` header instead of Bearer token
+  *   - Tool definitions use `input_schema` instead of `parameters`
+  *   - Tool results are content blocks in user messages, not separate messages
+  *   - `max_tokens` is required
+  *   - Prompt caching support for reduced costs and rate limits
+  *   - Throws domain errors (RateLimitError, etc.) for error handling
   */
 class ClaudeProvider[F[_]: Async](
     client: Client[F],
@@ -35,10 +35,11 @@ class ClaudeProvider[F[_]: Async](
 ) extends LLMProvider[F]:
 
   val name: String = "claude"
-  
+
   type Response = ChatCompletionResponse
 
-  def chatCompletion(request: ChatCompletionRequest): F[ChatCompletionResponse] =
+  def chatCompletion(request: ChatCompletionRequest)
+      : F[ChatCompletionResponse] =
     for
       // 1. Convert domain request to Claude API format
       claudeRequest <- toClaudeRequest(request)
@@ -102,20 +103,21 @@ class ClaudeProvider[F[_]: Async](
     Async[F].delay {
       // Extract system prompt from messages (Claude uses top-level system param)
       // If caching is enabled, wrap in blocks with cache_control
-      val systemPrompt: Option[ClaudeSystemContent] = req.messages.collectFirst {
-        case DomainMessage.System(content) => 
-          if config.enablePromptCaching then
-            ClaudeSystemContent.Blocks(Seq(
-              ClaudeSystemBlock("text", content, Some(CacheControl.ephemeral))
-            ))
-          else
-            ClaudeSystemContent.Text(content)
-      }
+      val systemPrompt: Option[ClaudeSystemContent] =
+        req.messages.collectFirst {
+          case DomainMessage.System(content) =>
+            if config.enablePromptCaching then
+              ClaudeSystemContent.Blocks(Seq(
+                ClaudeSystemBlock("text", content, Some(CacheControl.ephemeral))
+              ))
+            else
+              ClaudeSystemContent.Text(content)
+        }
 
       // Convert messages, handling tool calls and results specially
       val claudeMessages = convertMessages(req.messages.filterNot {
         case DomainMessage.System(_) => true
-        case _ => false
+        case _                       => false
       })
 
       // Convert tools to Claude format, with cache control on the last tool
@@ -127,7 +129,9 @@ class ClaudeProvider[F[_]: Async](
             name = toolSchema.name,
             description = toolSchema.description,
             input_schema = toolSchema.parameters,
-            cache_control = if config.enablePromptCaching && isLast then Some(CacheControl.ephemeral) else None
+            cache_control = if config.enablePromptCaching && isLast then
+              Some(CacheControl.ephemeral)
+            else None
           )
         })
       else
@@ -145,36 +149,47 @@ class ClaudeProvider[F[_]: Async](
     }
 
   /** Convert domain messages to Claude format.
-    * 
+    *
     * Key differences:
-    * - Tool calls from assistant become ToolUse content blocks
-    * - Tool results become ToolResult content blocks in the next user message
-    * - Consecutive same-role messages need to be merged
+    *   - Tool calls from assistant become ToolUse content blocks
+    *   - Tool results become ToolResult content blocks in the next user message
+    *   - Consecutive same-role messages need to be merged
     */
-  private def convertMessages(messages: Seq[DomainMessage]): Seq[ClaudeMessage] =
+  private def convertMessages(messages: Seq[DomainMessage])
+      : Seq[ClaudeMessage] =
     // Group consecutive messages and tool results appropriately
     val result = scala.collection.mutable.ListBuffer[ClaudeMessage]()
-    var pendingToolResults = scala.collection.mutable.ListBuffer[ClaudeContentBlock.ToolResult]()
+    val pendingToolResults =
+      scala.collection.mutable.ListBuffer[ClaudeContentBlock.ToolResult]()
 
     messages.foreach {
       case DomainMessage.User(content) =>
         // If we have pending tool results, add them first as a user message
         if pendingToolResults.nonEmpty then
-          result += ClaudeMessage("user", ClaudeContent.Blocks(pendingToolResults.toSeq))
+          result += ClaudeMessage(
+            "user",
+            ClaudeContent.Blocks(pendingToolResults.toSeq)
+          )
           pendingToolResults.clear()
         result += ClaudeMessage("user", ClaudeContent.Text(content))
 
       case DomainMessage.Assistant(AssistantContent.Text(text)) =>
         // Flush pending tool results before assistant message
         if pendingToolResults.nonEmpty then
-          result += ClaudeMessage("user", ClaudeContent.Blocks(pendingToolResults.toSeq))
+          result += ClaudeMessage(
+            "user",
+            ClaudeContent.Blocks(pendingToolResults.toSeq)
+          )
           pendingToolResults.clear()
         result += ClaudeMessage("assistant", ClaudeContent.Text(text))
 
       case DomainMessage.Assistant(AssistantContent.ToolCalls(calls)) =>
         // Flush pending tool results before assistant message
         if pendingToolResults.nonEmpty then
-          result += ClaudeMessage("user", ClaudeContent.Blocks(pendingToolResults.toSeq))
+          result += ClaudeMessage(
+            "user",
+            ClaudeContent.Blocks(pendingToolResults.toSeq)
+          )
           pendingToolResults.clear()
         // Convert tool calls to ToolUse blocks
         val toolUseBlocks = calls.map { call =>
@@ -184,7 +199,8 @@ class ClaudeProvider[F[_]: Async](
             input = call.arguments
           )
         }
-        result += ClaudeMessage("assistant", ClaudeContent.Blocks(toolUseBlocks.toSeq))
+        result +=
+          ClaudeMessage("assistant", ClaudeContent.Blocks(toolUseBlocks.toSeq))
 
       case DomainMessage.Tool(toolCallId, _, content) =>
         // Accumulate tool results - they'll be sent in a user message
@@ -198,7 +214,8 @@ class ClaudeProvider[F[_]: Async](
 
     // Flush any remaining tool results
     if pendingToolResults.nonEmpty then
-      result += ClaudeMessage("user", ClaudeContent.Blocks(pendingToolResults.toSeq))
+      result +=
+        ClaudeMessage("user", ClaudeContent.Blocks(pendingToolResults.toSeq))
 
     result.toSeq
 
@@ -215,7 +232,8 @@ class ClaudeProvider[F[_]: Async](
     ).withEntity(req.asJson)
 
   /** Convert Claude response to domain ChatCompletionResponse */
-  private def fromClaudeResponse(res: ClaudeResponse): F[ChatCompletionResponse] =
+  private def fromClaudeResponse(res: ClaudeResponse)
+      : F[ChatCompletionResponse] =
     Async[F].delay {
       // Extract tool uses and text from content blocks
       val toolCalls = res.content.collect {
@@ -236,11 +254,11 @@ class ClaudeProvider[F[_]: Async](
 
       // Map stop_reason to finish_reason
       val finishReason = res.stop_reason.map {
-        case "end_turn" => "stop"
-        case "tool_use" => "tool_calls"
-        case "max_tokens" => "length"
+        case "end_turn"      => "stop"
+        case "tool_use"      => "tool_calls"
+        case "max_tokens"    => "length"
         case "stop_sequence" => "stop"
-        case other => other
+        case other           => other
       }
 
       ChatCompletionResponse(
@@ -275,5 +293,8 @@ object ClaudeProvider:
     resource(ClaudeConfig.fromEnv)
 
   /** Create a provider with a custom HTTP client */
-  def apply[F[_]: Async](client: Client[F], config: ClaudeConfig): ClaudeProvider[F] =
+  def apply[F[_]: Async](
+      client: Client[F],
+      config: ClaudeConfig
+  ): ClaudeProvider[F] =
     new ClaudeProvider[F](client, config)

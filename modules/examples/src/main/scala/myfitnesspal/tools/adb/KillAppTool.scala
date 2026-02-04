@@ -9,7 +9,9 @@ import com.melvinlow.json.schema.generic.auto.given
 import com.melvinlow.json.schema.annotation.description
 
 case class KillAppInput(
-    @description("Package name of the app to kill (e.g., com.myfitnesspal.android)")
+    @description(
+      "Package name of the app to kill (e.g., com.myfitnesspal.android)"
+    )
     packageName: String,
     @description("Optional device ID, if not provided uses default device")
     deviceId: Option[String] = None
@@ -19,8 +21,8 @@ case class KillAppOutput(success: Boolean, message: String)
 
 /** Force stop an Android app
   *
-  * Use this to kill an app completely and start fresh.
-  * Useful for ensuring clean state before automation.
+  * Use this to kill an app completely and start fresh. Useful for ensuring
+  * clean state before automation.
   */
 class KillAppTool[F[_]: Async] extends Tool[F, KillAppInput, KillAppOutput]:
 
@@ -37,6 +39,9 @@ class KillAppTool[F[_]: Async] extends Tool[F, KillAppInput, KillAppOutput]:
       }
       .handleErrorWith { error =>
         Async[F].pure(
-          KillAppOutput(success = false, message = s"Kill failed: ${error.getMessage}")
+          KillAppOutput(
+            success = false,
+            message = s"Kill failed: ${error.getMessage}"
+          )
         )
       }
