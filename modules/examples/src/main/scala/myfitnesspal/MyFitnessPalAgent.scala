@@ -187,7 +187,10 @@ class ToolNode(using toolRegistry: ToolRegistry[IO])
       given executeShellTool: ExecuteShellTool[IO] = new ExecuteShellTool[IO]
       given getUserInputTool: GetUserInputTool[IO] = new GetUserInputTool[IO]
       given emulatorTool: EmulatorManagerTool[IO] =
-        new EmulatorManagerTool[IO]("Pixel_6_API_36")
+        new EmulatorManagerTool[IO](
+          avdName = EmulatorManagerTool.avdNameFromEnv,
+          androidHome = EmulatorManagerTool.androidHomeFromEnv
+        )
 
       // Setup tool registry
       given toolRegistry: ToolRegistry[IO] =

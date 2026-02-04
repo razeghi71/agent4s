@@ -5,18 +5,30 @@ An AI agent that automates food logging in the MyFitnessPal Android app. It uses
 ## Prerequisites
 
 - **ADB** installed and on your PATH (`which adb`)
-- **Android emulator** with an AVD named `Pixel_6_API_36` (or change the name in `MyFitnessPalAgent.scala`)
-- **MyFitnessPal** installed on the emulator with a **logged-in account** -- the agent does not handle login/signup
-- **`DEEPSEEK_API_KEY`** environment variable set
+- **Android emulator** with an AVD created (e.g., via Android Studio AVD Manager)
+- **MyFitnessPal** installed on the emulator with a **logged-in account** - the agent does not handle login/signup, so you must manually install the app and log in before running
 
-The agent will launch the emulator automatically if it's not already running. It expects the emulator binary at `/opt/homebrew/share/android-commandlinetools/emulator/emulator` (Homebrew on Apple Silicon). Adjust `EmulatorManagerTool` if your path differs.
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DEEPSEEK_API_KEY` | Yes | DeepSeek API key |
+| `ANDROID_HOME` | Yes | Path to Android SDK (e.g., `/opt/homebrew/share/android-commandlinetools` on macOS with Homebrew, or `~/Android/Sdk` on Linux) |
+| `AVD_NAME` | Yes | Name of your AVD (e.g., `Pixel_6_API_36`). Find yours with `emulator -list-avds` |
+| `DEEPSEEK_MODEL` | No | Model to use (default: `deepseek-chat`) |
+
+Example setup:
+```bash
+export DEEPSEEK_API_KEY="your-api-key"
+export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"  # macOS Homebrew
+export AVD_NAME="Pixel_6_API_36"
+```
+
+The agent will launch the emulator automatically if it's not already running.
 
 ## Running
 
 ```bash
-# Optional: choose model (defaults to deepseek-chat)
-export DEEPSEEK_MODEL=deepseek-chat
-
 sbt "examples/runMain myfitnesspal.myFitnessPalAgent"
 ```
 

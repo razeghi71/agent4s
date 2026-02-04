@@ -35,6 +35,8 @@ case class EmulatorStatus(
   *
   * @param avdName
   *   AVD name to launch (e.g., "Pixel_6_API_36")
+  * @param androidHome
+  *   Android SDK home directory containing emulator/
   * @param launchTimeout
   *   Maximum time to wait for emulator to boot
   * @param bootCheckInterval
@@ -42,6 +44,7 @@ case class EmulatorStatus(
   */
 class EmulatorManagerTool[F[_]: Async](
     avdName: String,
+    androidHome: String,
     launchTimeout: FiniteDuration = 60.seconds,
     bootCheckInterval: FiniteDuration = 5.seconds
 ) extends Tool[F, EmulatorCheckInput, EmulatorStatus]:
@@ -120,8 +123,6 @@ class EmulatorManagerTool[F[_]: Async](
     */
   private def launchEmulator(): F[Unit] =
     Async[F].blocking {
-      // Set up environment variables for M1 optimization
-      val androidHome = "/opt/homebrew/share/android-commandlinetools"
       val emulatorPath = s"$androidHome/emulator/emulator"
 
       val env = Seq(
@@ -150,7 +151,7 @@ class EmulatorManagerTool[F[_]: Async](
       Async[F].raiseError(
         new RuntimeException(
           s"Failed to launch emulator: ${error.getMessage}. " +
-            s"Make sure emulator is at /opt/homebrew/share/android-commandlinetools/emulator/emulator " +
+            s"Make sure emulator is at $androidHome/emulator/emulator " +
             s"and AVD '$avdName' exists."
         )
       )
@@ -185,3 +186,16 @@ class EmulatorManagerTool[F[_]: Async](
     val maxAttempts =
       (launchTimeout.toMillis / bootCheckInterval.toMillis).toInt
     checkBoot(0, maxAttempts)
+
+object EmulatorManagerTool:
+  /** Android SDK home from ANDROID_HOME env var */
+  def androidHomeFromEnv: String = sys.env.getOrElse(
+    "ANDROID_HOME",
+    throw new RuntimeException("ANDROID_HOME environment variable not set")
+  )
+
+  /** AVD name from AVD_NAME env var */
+  def avdNameFromEnv: String = sys.env.getOrElse(
+    "AVD_NAME",
+    throw new RuntimeException("AVD_NAME environment variable not set")
+  )
