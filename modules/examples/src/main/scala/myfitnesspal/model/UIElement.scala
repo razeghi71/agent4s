@@ -38,18 +38,6 @@ case class UIElement(
     enabled: Boolean,
     children: List[UIElement] = List.empty
 ):
-  /** Check if element contains text (case-insensitive) */
-  def containsText(query: String): Boolean =
-    text.exists(_.toLowerCase.contains(query.toLowerCase))
-
-  /** Check if content description contains text (case-insensitive) */
-  def containsContentDesc(query: String): Boolean =
-    contentDesc.exists(_.toLowerCase.contains(query.toLowerCase))
-
-  /** Check if resource ID matches */
-  def hasResourceId(id: String): Boolean =
-    resourceId.contains(id)
-
   /** Get all descendants (flattened tree) */
   def descendants: List[UIElement] =
     this :: children.flatMap(_.descendants)
@@ -107,48 +95,6 @@ object UIElement:
       children = children
     )
 
-  /** Find all elements matching a predicate in tree */
-  def findAll(
-      root: UIElement,
-      predicate: UIElement => Boolean
-  ): List[UIElement] =
-    root.descendants.filter(predicate)
-
-  /** Find first element matching predicate in tree */
-  def findFirst(
-      root: UIElement,
-      predicate: UIElement => Boolean
-  ): Option[UIElement] =
-    root.descendants.find(predicate)
-
-  /** Find all elements by text */
-  def findByText(root: UIElement, text: String): List[UIElement] =
-    findAll(root, _.containsText(text))
-
-  /** Find all elements by content description (exact match, case-insensitive)
-    */
-  def findByContentDesc(root: UIElement, desc: String): Option[UIElement] =
-    findFirst(root, elem => elem.contentDesc.exists(_.equalsIgnoreCase(desc)))
-
-  /** Find all elements with resource ID */
-  def findByResourceId(root: UIElement, id: String): List[UIElement] =
-    findAll(root, _.hasResourceId(id))
-
-  /** Find all elements by class name */
-  def findByClassName(root: UIElement, className: String): List[UIElement] =
-    findAll(root, _.className == className)
-
-  /** Find all text-containing elements */
-  def findTextContaining(root: UIElement, query: String): List[UIElement] =
-    findAll(
-      root,
-      elem => elem.text.exists(_.toLowerCase.contains(query.toLowerCase))
-    )
-
-  /** Find all clickable elements */
-  def findClickable(root: UIElement): List[UIElement] =
-    findAll(root, _.clickable)
-
   /** Find all actionable or informative elements (for LLM consumption)
     *
     * Filters to only elements that are:
@@ -157,17 +103,15 @@ object UIElement:
     *   - Are enabled
     */
   def findActionable(root: UIElement): List[UIElement] =
-    findAll(
-      root,
-      elem =>
-        elem.enabled && (
-          elem.clickable ||
-            elem.scrollable ||
-            elem.focusable ||
-            elem.text.isDefined ||
-            elem.contentDesc.isDefined
-        )
-    )
+    root.descendants.filter { elem =>
+      elem.enabled && (
+        elem.clickable ||
+          elem.scrollable ||
+          elem.focusable ||
+          elem.text.isDefined ||
+          elem.contentDesc.isDefined
+      )
+    }
 
   /** Generate a compact text representation for LLM consumption
     *
@@ -175,11 +119,6 @@ object UIElement:
     *   - Only including actionable/informative elements
     *   - Using short class names
     *   - Using concise format: [id] label (type) [actions] @ bounds
-    *
-    * @param root
-    *   The root UIElement
-    * @return
-    *   Compact multi-line string representation
     */
   def toCompactText(root: UIElement): String =
     val actionable = findActionable(root)
@@ -187,7 +126,3 @@ object UIElement:
       elem.toCompactLine(idx)
     }
     s"Elements: ${actionable.size}\n" + lines.mkString("\n")
-
-  /** Estimate token count for compact representation */
-  def estimateTokens(root: UIElement): Int =
-    toCompactText(root).split("\\s+").length

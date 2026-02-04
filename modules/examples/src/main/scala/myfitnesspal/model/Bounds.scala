@@ -11,12 +11,7 @@ package myfitnesspal.model
   * @param y2
   *   Bottom coordinate
   */
-case class Bounds(x1: Int, y1: Int, x2: Int, y2: Int):
-  def centerX: Int = (x1 + x2) / 2
-  def centerY: Int = (y1 + y2) / 2
-  def center: (Int, Int) = (centerX, centerY)
-  def width: Int = x2 - x1
-  def height: Int = y2 - y1
+case class Bounds(x1: Int, y1: Int, x2: Int, y2: Int)
 
 object Bounds:
   /** Parse bounds from Android UI dump format: "[x1,y1][x2,y2]"
