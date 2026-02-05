@@ -21,8 +21,6 @@ ThisBuild / developers := List(
   )
 )
 ThisBuild / sonatypeCredentialHost := "central.sonatype.com"
-ThisBuild / publishTo := sonatypePublishToBundle.value
-ThisBuild / sonatypeRepository := "https://central.sonatype.com/api/v1/publisher"
 ThisBuild / versionScheme := Some("early-semver")
 
 val circeVersion = "0.14.9"
